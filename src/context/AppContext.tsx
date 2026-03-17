@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { DataRow, TabName, TimeUnit } from '@/types/metrics';
 import { convertDatesAndFill } from '@/lib/dataProcessing';
-import { fetchCatalogoMetricas } from '@/lib/firestoreService';
+import { fetchVisitasData, saveSupData, saveEjecData } from '@/lib/firestoreService';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 
@@ -67,6 +67,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setState(s => ({ ...s, isLoading: true }));
     const name = file.name.toLowerCase();
 
+    const processAndSave = (sup: DataRow[], ejec: DataRow[]) => {
+      processData(sup, ejec);
+      // Save to Firestore in background
+      const promises: Promise<void>[] = [];
+      if (sup.length > 0) promises.push(saveSupData(sup));
+      if (ejec.length > 0) promises.push(saveEjecData(ejec));
+      Promise.all(promises)
+        .then(() => console.log('Datos guardados en Firestore ✅'))
+        .catch(err => console.error('Error guardando en Firestore:', err));
+    };
+
     if (name.endsWith('.csv')) {
       Papa.parse(file, {
         header: true,
@@ -74,9 +85,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         complete: (results) => {
           const data = convertDatesAndFill(results.data as Record<string, unknown>[]);
           if (data.length > 0 && data[0].EJECUTIVO !== undefined) {
-            processData(state.supData, data);
+            processAndSave(state.supData, data);
           } else {
-            processData(data, state.ejecData);
+            processAndSave(data, state.ejecData);
           }
         },
         error: () => setState(s => ({ ...s, isLoading: false })),
@@ -103,7 +114,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             if (raw.length > 0 && raw[0].EJECUTIVO !== undefined) newEjec = raw;
             else newSup = raw;
           }
-          processData(newSup, newEjec);
+          processAndSave(newSup, newEjec);
         } catch {
           setState(s => ({ ...s, isLoading: false }));
         }
@@ -115,13 +126,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const loadFromFirestore = useCallback(async () => {
     setState(s => ({ ...s, isLoading: true }));
     try {
-      const { supData, ejecData } = await fetchCatalogoMetricas();
+      const { supData, ejecData } = await fetchVisitasData();
       processData(supData, ejecData);
     } catch (err) {
       console.error('Error loading from Firestore:', err);
       setState(s => ({ ...s, isLoading: false }));
     }
   }, [processData]);
+
+  // Save to Firestore after file upload
+  const saveAfterUpload = useCallback(async (sup: DataRow[], ejec: DataRow[]) => {
+    try {
+      const promises: Promise<void>[] = [];
+      if (sup.length > 0) promises.push(saveSupData(sup));
+      if (ejec.length > 0) promises.push(saveEjecData(ejec));
+      await Promise.all(promises);
+      console.log('Data saved to Firestore successfully');
+    } catch (err) {
+      console.error('Error saving to Firestore:', err);
+    }
+  }, []);
 
   // Auto-load from Firestore on mount
   useEffect(() => {
