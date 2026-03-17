@@ -12,6 +12,38 @@ export const PALETTE = {
   multi: ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#14b8a6', '#f97316', '#06b6d4']
 };
 
+const HEADER_ALIASES: Record<string, string> = {
+  FECHA: 'FECHA',
+  FECHADEVISITA: 'FECHA',
+  FECHAVISITA: 'FECHA',
+  ANO: 'AÑO',
+  ANIO: 'AÑO',
+  AÑO: 'AÑO',
+  MES: 'MES',
+  CLIENTE: 'CLIENTE',
+  RAZONSOCIAL: 'CLIENTE',
+  CLIENTERAZONSOCIAL: 'CLIENTE',
+  SUCURSAL: 'SUCURSAL',
+  AGENCIA: 'SUCURSAL',
+  SUCURSALAGENCIA: 'SUCURSAL',
+  STATUS: 'STATUS',
+  ESTATUS: 'STATUS',
+  ESTADO: 'STATUS',
+  SUPERVISOR: 'SUPERVISOR',
+  SUPERVISORA: 'SUPERVISOR',
+  SUPERVISORRESPONSABLE: 'SUPERVISOR',
+  EJECUTIVO: 'EJECUTIVO',
+  EJECUTIVA: 'EJECUTIVO',
+  ASESOR: 'EJECUTIVO',
+  TIPODEVISITA: 'TIPO DE VISITA',
+  TIPOVISITA: 'TIPO DE VISITA',
+  TIPODEGESTION: 'TIPO DE VISITA',
+  OBSERVACION: 'OBSERVACIONES',
+  OBSERVACIONES: 'OBSERVACIONES',
+  COMENTARIO: 'OBSERVACIONES',
+  COMENTARIOS: 'OBSERVACIONES',
+};
+
 export function normalizeText(value: unknown): string {
   return String(value ?? '')
     .normalize('NFD')
@@ -20,12 +52,23 @@ export function normalizeText(value: unknown): string {
     .toUpperCase();
 }
 
+function normalizeHeaderKey(key: string): string {
+  const normalized = normalizeText(key).replace(/[^A-Z0-9]/g, '');
+  return HEADER_ALIASES[normalized] || normalizeText(key);
+}
+
 export function normalizeMonth(m: unknown): string {
   if (!m) return '';
   const normalized = normalizeText(m);
   for (const name of MONTH_NAMES) {
     if (normalizeText(name) === normalized) return name;
   }
+
+  const numericMonth = Number(String(m).trim());
+  if (Number.isFinite(numericMonth) && numericMonth >= 1 && numericMonth <= 12) {
+    return MONTH_NAMES[numericMonth - 1];
+  }
+
   return String(m).trim();
 }
 
@@ -48,16 +91,18 @@ export function isRealized(s: unknown): boolean {
     || normalized.includes('EJECUTAD')
     || normalized.includes('ENVIAD')
     || normalized.includes('REUNI')
-    || normalized.includes('SUPERVISI');
+    || normalized.includes('SUPERVISI')
+    || normalized.includes('CUMPLID');
 }
 
 export function isProgrammed(s: unknown): boolean {
-  return normalizeText(s).includes('PROGRAMAD');
+  const normalized = normalizeText(s);
+  return normalized.includes('PROGRAMAD') || normalized.includes('AGENDAD') || normalized.includes('PENDIENT');
 }
 
 export function getTaskType(row: DataRow): string {
   const status = normalizeText(row.STATUS);
-  if (status === 'SI' || status.includes('REALIZAD') || status.includes('EJECUTAD')) {
+  if (status === 'SI' || status.includes('REALIZAD') || status.includes('EJECUTAD') || status.includes('CUMPLID')) {
     const visitType = normalizeText(row['TIPO DE VISITA']);
     return visitType || 'REALIZADO (OTROS)';
   }
@@ -156,10 +201,19 @@ function getDateParts(row: DataRow): { year: string; month: string } {
 export function convertDatesAndFill(data: Record<string, unknown>[]): DataRow[] {
   return data.map(row => {
     const finalRow: DataRow = {};
-    Object.keys(row).forEach(key => { finalRow[key.trim().toUpperCase()] = row[key]; });
+
+    Object.keys(row).forEach(key => {
+      finalRow[normalizeHeaderKey(key)] = row[key];
+    });
 
     if (finalRow.AÑO) finalRow.AÑO = String(finalRow.AÑO).trim();
     if (finalRow.MES) finalRow.MES = normalizeMonth(finalRow.MES);
+    if (!finalRow.MES && finalRow.FECHA) {
+      const maybeNumericMonth = Number(finalRow.FECHA);
+      if (Number.isFinite(maybeNumericMonth) && maybeNumericMonth >= 1 && maybeNumericMonth <= 12) {
+        finalRow.MES = MONTH_NAMES[maybeNumericMonth - 1];
+      }
+    }
 
     const dateObj = parseDateValue(finalRow.FECHA);
     if (dateObj) {
