@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
 import { useAppContext } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
 import { getYears, MONTH_NAMES } from '@/lib/dataProcessing';
-import { FileSpreadsheet, BarChart3, Briefcase, Scale, ListChecks, Upload } from 'lucide-react';
+import { FileSpreadsheet, BarChart3, Briefcase, Scale, ListChecks, LogOut, RefreshCw } from 'lucide-react';
 import type { TabName } from '@/types/metrics';
 
 const tabs: { id: TabName; label: string; icon: React.ReactNode; field: 'sup' | 'ejec' | 'both' }[] = [
