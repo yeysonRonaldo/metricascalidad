@@ -1,4 +1,5 @@
 import { AppProvider, useAppContext } from '@/context/AppContext';
+
 import Header from '@/components/Header';
 import EmptyState from '@/components/EmptyState';
 import DashboardSection from '@/components/DashboardSection';
