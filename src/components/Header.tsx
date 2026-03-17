@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
 import { useAppContext } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
 import { getYears, MONTH_NAMES } from '@/lib/dataProcessing';
-import { FileSpreadsheet, BarChart3, Briefcase, Scale, ListChecks, Upload } from 'lucide-react';
+import { FileSpreadsheet, BarChart3, Briefcase, Scale, ListChecks, LogOut, RefreshCw } from 'lucide-react';
 import type { TabName } from '@/types/metrics';
 
 const tabs: { id: TabName; label: string; icon: React.ReactNode; field: 'sup' | 'ejec' | 'both' }[] = [
@@ -12,7 +13,8 @@ const tabs: { id: TabName; label: string; icon: React.ReactNode; field: 'sup' | 
 ];
 
 export default function Header() {
-  const { activeTab, setActiveTab, yearFilter, setYearFilter, monthFilter, setMonthFilter, handleFileUpload, supData, ejecData, hasData } = useAppContext();
+  const { activeTab, setActiveTab, yearFilter, setYearFilter, monthFilter, setMonthFilter, handleFileUpload, loadFromFirestore, supData, ejecData, hasData } = useAppContext();
+  const { user, signOut } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const years = getYears(supData, ejecData);
 
@@ -42,12 +44,20 @@ export default function Header() {
               <p className="text-xs opacity-80">Monitor de Supervisión & Ejecutivos</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 bg-primary-foreground/10 p-2 rounded-xl backdrop-blur-sm">
+          <div className="flex items-center gap-2 bg-primary-foreground/10 p-2 rounded-xl backdrop-blur-sm">
+            <button onClick={() => loadFromFirestore()} className="bg-card/80 text-primary hover:bg-card px-3 py-2 rounded-lg text-sm font-bold shadow-md transition flex items-center gap-2 active:scale-95" title="Recargar desde Firebase">
+              <RefreshCw className="w-4 h-4" />
+            </button>
             <button onClick={() => fileRef.current?.click()} className="bg-card text-primary hover:bg-card/90 px-5 py-2 rounded-lg text-sm font-bold shadow-md transition flex items-center gap-2 active:scale-95">
               <FileSpreadsheet className="w-5 h-5 text-success" />
               <span>Cargar Datos</span>
             </button>
             <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" onChange={onFile} className="hidden" />
+            {user && (
+              <button onClick={signOut} className="bg-card/80 text-destructive hover:bg-card px-3 py-2 rounded-lg text-sm font-bold shadow-md transition flex items-center gap-2 active:scale-95" title="Cerrar sesión">
+                <LogOut className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 
