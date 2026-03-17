@@ -58,7 +58,7 @@ export function convertDatesAndFill(data: Record<string, unknown>[]): DataRow[] 
     Object.keys(row).forEach(key => { finalRow[key.trim().toUpperCase()] = row[key]; });
 
     let dateObj: Date | null = null;
-    if (finalRow.FECHA instanceof Date) dateObj = finalRow.FECHA as unknown as Date;
+    if (finalRow.FECHA && typeof finalRow.FECHA === 'object' && finalRow.FECHA instanceof Date) dateObj = finalRow.FECHA;
     else if (typeof finalRow.FECHA === 'string') {
       const cleanStr = (finalRow.FECHA as string).trim();
       if (/^\d{4}-\d{2}-\d{2}$/.test(cleanStr)) dateObj = new Date(cleanStr + 'T00:00:00');
