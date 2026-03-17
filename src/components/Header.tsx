@@ -13,7 +13,8 @@ const tabs: { id: TabName; label: string; icon: React.ReactNode; field: 'sup' | 
 ];
 
 export default function Header() {
-  const { activeTab, setActiveTab, yearFilter, setYearFilter, monthFilter, setMonthFilter, handleFileUpload, supData, ejecData, hasData } = useAppContext();
+  const { activeTab, setActiveTab, yearFilter, setYearFilter, monthFilter, setMonthFilter, handleFileUpload, loadFromFirestore, supData, ejecData, hasData } = useAppContext();
+  const { user, signOut } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const years = getYears(supData, ejecData);
 
