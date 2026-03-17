@@ -50,7 +50,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     supData.forEach(d => { if (d.AÑO) years.add(d.AÑO.toString()); });
     ejecData.forEach(d => { if (d.AÑO) years.add(d.AÑO.toString()); });
     const sortedYears = Array.from(years).sort();
-    const latestYear = sortedYears.length ? sortedYears[sortedYears.length - 1] : '2026';
+    const latestYear = sortedYears.length
+      ? sortedYears[sortedYears.length - 1]
+      : (supData.length > 0 || ejecData.length > 0 ? 'all' : '2026');
 
     const defaultTab: TabName = supData.length > 0 ? 'dashboard' : 'ejecutivos';
     setState(s => ({
