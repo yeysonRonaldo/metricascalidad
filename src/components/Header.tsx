@@ -80,11 +80,11 @@ export default function Header() {
                 ))}
               </div>
               <div className="flex gap-1.5">
-                <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className="bg-primary-foreground/10 text-primary-foreground border border-primary-foreground/20 rounded-lg px-2 py-1 text-xs focus:outline-none cursor-pointer">
+                <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className="bg-card text-foreground border border-primary-foreground/20 rounded-lg px-2 py-1 text-xs focus:outline-none cursor-pointer shadow-sm">
                   <option value="all">Todos los años</option>
                   {years.map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
-                <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} className="bg-primary-foreground/10 text-primary-foreground border border-primary-foreground/20 rounded-lg px-2 py-1 text-xs focus:outline-none cursor-pointer">
+                <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} className="bg-card text-foreground border border-primary-foreground/20 rounded-lg px-2 py-1 text-xs focus:outline-none cursor-pointer shadow-sm">
                   <option value="all">Todos los meses</option>
                   {MONTH_NAMES.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
