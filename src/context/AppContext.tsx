@@ -115,13 +115,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const loadFromFirestore = useCallback(async () => {
     setState(s => ({ ...s, isLoading: true }));
     try {
-      const { supData, ejecData } = await fetchCatalogoMetricas();
+      const { supData, ejecData } = await fetchVisitasData();
       processData(supData, ejecData);
     } catch (err) {
       console.error('Error loading from Firestore:', err);
       setState(s => ({ ...s, isLoading: false }));
     }
   }, [processData]);
+
+  // Save to Firestore after file upload
+  const saveAfterUpload = useCallback(async (sup: DataRow[], ejec: DataRow[]) => {
+    try {
+      const promises: Promise<void>[] = [];
+      if (sup.length > 0) promises.push(saveSupData(sup));
+      if (ejec.length > 0) promises.push(saveEjecData(ejec));
+      await Promise.all(promises);
+      console.log('Data saved to Firestore successfully');
+    } catch (err) {
+      console.error('Error saving to Firestore:', err);
+    }
+  }, []);
 
   // Auto-load from Firestore on mount
   useEffect(() => {
