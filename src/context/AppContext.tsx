@@ -112,10 +112,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [state.supData, state.ejecData, processData]);
 
+  const loadFromFirestore = useCallback(async () => {
+    setState(s => ({ ...s, isLoading: true }));
+    try {
+      const { supData, ejecData } = await fetchCatalogoMetricas();
+      processData(supData, ejecData);
+    } catch (err) {
+      console.error('Error loading from Firestore:', err);
+      setState(s => ({ ...s, isLoading: false }));
+    }
+  }, [processData]);
+
+  // Auto-load from Firestore on mount
+  useEffect(() => {
+    loadFromFirestore();
+  }, [loadFromFirestore]);
+
   const hasData = state.supData.length > 0 || state.ejecData.length > 0;
 
   return (
-    <AppContext.Provider value={{ ...state, setActiveTab, setYearFilter, setMonthFilter, handleFileUpload, hasData }}>
+    <AppContext.Provider value={{ ...state, setActiveTab, setYearFilter, setMonthFilter, handleFileUpload, loadFromFirestore, hasData }}>
       {children}
     </AppContext.Provider>
   );
