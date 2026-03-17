@@ -44,12 +44,20 @@ export default function Header() {
               <p className="text-xs opacity-80">Monitor de Supervisión & Ejecutivos</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 bg-primary-foreground/10 p-2 rounded-xl backdrop-blur-sm">
+          <div className="flex items-center gap-2 bg-primary-foreground/10 p-2 rounded-xl backdrop-blur-sm">
+            <button onClick={() => loadFromFirestore()} className="bg-card/80 text-primary hover:bg-card px-3 py-2 rounded-lg text-sm font-bold shadow-md transition flex items-center gap-2 active:scale-95" title="Recargar desde Firebase">
+              <RefreshCw className="w-4 h-4" />
+            </button>
             <button onClick={() => fileRef.current?.click()} className="bg-card text-primary hover:bg-card/90 px-5 py-2 rounded-lg text-sm font-bold shadow-md transition flex items-center gap-2 active:scale-95">
               <FileSpreadsheet className="w-5 h-5 text-success" />
               <span>Cargar Datos</span>
             </button>
             <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" onChange={onFile} className="hidden" />
+            {user && (
+              <button onClick={signOut} className="bg-card/80 text-destructive hover:bg-card px-3 py-2 rounded-lg text-sm font-bold shadow-md transition flex items-center gap-2 active:scale-95" title="Cerrar sesión">
+                <LogOut className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 
