@@ -6,6 +6,26 @@ import type { DataRow } from "@/types/metrics";
 const COLLECTION_SUP = "visitas_supervisores";
 const COLLECTION_EJEC = "visitas_ejecutivos";
 
+function generateRowId(row: DataRow, type: 'sup' | 'ejec'): string {
+  const fecha = (row.FECHA || '').toString().trim();
+  const person = type === 'sup'
+    ? (row.SUPERVISOR || '').toString().trim().toUpperCase()
+    : (row.EJECUTIVO || '').toString().trim().toUpperCase();
+  const cliente = (row.CLIENTE || '').toString().trim().toUpperCase();
+  const sucursal = (row.SUCURSAL || '').toString().trim().toUpperCase();
+  const status = (row.STATUS || '').toString().trim().toUpperCase();
+  // Create a deterministic key
+  const raw = `${fecha}|${person}|${cliente}|${sucursal}|${status}`;
+  // Simple hash to create a valid Firestore doc ID
+  let hash = 0;
+  for (let i = 0; i < raw.length; i++) {
+    const char = raw.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0;
+  }
+  return `${Math.abs(hash).toString(36)}_${raw.replace(/[^a-zA-Z0-9|]/g, '').slice(0, 60)}`;
+}
+
 export async function fetchVisitasData(): Promise<{ supData: DataRow[]; ejecData: DataRow[] }> {
   const [supSnap, ejecSnap] = await Promise.all([
     getDocs(collection(db, COLLECTION_SUP)),
@@ -24,45 +44,41 @@ export async function fetchVisitasData(): Promise<{ supData: DataRow[]; ejecData
   return { supData, ejecData };
 }
 
-async function saveToCollection(collectionName: string, data: DataRow[]): Promise<void> {
-  // Delete existing docs first, then write new ones in batches of 500
+async function saveToCollection(collectionName: string, data: DataRow[], type: 'sup' | 'ejec'): Promise<void> {
+  // Fetch existing doc IDs to skip duplicates
   const existing = await getDocs(collection(db, collectionName));
-  
-  // Delete in batches
-  let deleteBatch = writeBatch(db);
-  let count = 0;
-  for (const docSnap of existing.docs) {
-    deleteBatch.delete(docSnap.ref);
-    count++;
-    if (count % 500 === 0) {
-      await deleteBatch.commit();
-      deleteBatch = writeBatch(db);
-    }
-  }
-  if (count % 500 !== 0) await deleteBatch.commit();
+  const existingIds = new Set<string>();
+  existing.forEach((d) => existingIds.add(d.id));
 
-  // Write new data in batches
+  // Only write rows whose deterministic ID doesn't already exist
   let batch = writeBatch(db);
   let writeCount = 0;
-  for (let i = 0; i < data.length; i++) {
-    const row = { ...data[i] };
-    // Remove internal fields
-    delete row._ROLE;
-    const ref = doc(collection(db, collectionName));
-    batch.set(ref, row);
+  let skipped = 0;
+
+  for (const row of data) {
+    const docId = generateRowId(row, type);
+    if (existingIds.has(docId)) {
+      skipped++;
+      continue;
+    }
+    const rowCopy = { ...row };
+    delete rowCopy._ROLE;
+    const ref = doc(collection(db, collectionName), docId);
+    batch.set(ref, rowCopy);
     writeCount++;
     if (writeCount % 500 === 0) {
       await batch.commit();
       batch = writeBatch(db);
     }
   }
-  if (writeCount % 500 !== 0) await batch.commit();
+  if (writeCount % 500 !== 0 && writeCount > 0) await batch.commit();
+  console.log(`Firestore [${collectionName}]: ${writeCount} nuevos, ${skipped} duplicados omitidos`);
 }
 
 export async function saveSupData(data: DataRow[]): Promise<void> {
-  await saveToCollection(COLLECTION_SUP, data);
+  await saveToCollection(COLLECTION_SUP, data, 'sup');
 }
 
 export async function saveEjecData(data: DataRow[]): Promise<void> {
-  await saveToCollection(COLLECTION_EJEC, data);
+  await saveToCollection(COLLECTION_EJEC, data, 'ejec');
 }
