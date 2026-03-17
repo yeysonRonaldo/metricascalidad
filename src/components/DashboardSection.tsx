@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useAppContext } from '@/context/AppContext';
-import { filterByYearMonth, computeSupervisorStats, computeMonthlyData, groupDataByTime } from '@/lib/dataProcessing';
+import { filterByYearMonth, computeSupervisorStats, computeMonthlyData, groupDataByTime, isProgrammed, isRealized } from '@/lib/dataProcessing';
 import KPICards from '@/components/KPICards';
 import GoalCards from '@/components/GoalCards';
 import { MonthlyBarChart, ParticipationDoughnut, SupervisorStackChart, TimeLineChart, GestionPieChart, IndividualGestionPies } from '@/components/Charts';
@@ -22,11 +22,8 @@ export default function DashboardSection({ type }: DashboardSectionProps) {
   const monthlyData = useMemo(() => computeMonthlyData(filteredData), [filteredData]);
   const timeData = useMemo(() => groupDataByTime(filteredData, timeUnit), [filteredData, timeUnit]);
 
-  const metaCount = filteredData.filter(r => r.STATUS && String(r.STATUS).toUpperCase().includes('PROGRAMADO')).length;
-  const realizedCount = filteredData.filter(r => {
-    const s = String(r.STATUS || '').toUpperCase();
-    return s.includes('REALIZADO') || s.includes('EJECUTADO') || s.includes('ENVIADO') || s.includes('REUNI') || s.includes('SUPERVISI') || s === 'SI';
-  }).length;
+  const metaCount = filteredData.filter(r => isProgrammed(r.STATUS)).length;
+  const realizedCount = filteredData.filter(r => isRealized(r.STATUS)).length;
   const missingCount = Math.max(0, metaCount - realizedCount);
   const realizedPct = metaCount > 0 ? Math.round((realizedCount / metaCount) * 100) : 0;
 

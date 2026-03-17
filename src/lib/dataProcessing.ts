@@ -12,14 +12,21 @@ export const PALETTE = {
   multi: ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#14b8a6', '#f97316', '#06b6d4']
 };
 
+export function normalizeText(value: unknown): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toUpperCase();
+}
+
 export function normalizeMonth(m: unknown): string {
   if (!m) return '';
-  const s = String(m).trim();
-  const lower = s.toLowerCase();
+  const normalized = normalizeText(m);
   for (const name of MONTH_NAMES) {
-    if (name.toLowerCase() === lower) return name;
+    if (normalizeText(name) === normalized) return name;
   }
-  return s;
+  return String(m).trim();
 }
 
 export function capitalizeWords(str: string | undefined): string {
@@ -28,28 +35,122 @@ export function capitalizeWords(str: string | undefined): string {
 }
 
 export function cleanString(str: string | undefined): string {
-  if (!str) return '';
-  return str.toString().toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/SA$/g, '').replace(/SOCIEDADANONIMA/g, '');
+  return normalizeText(str)
+    .replace(/[^A-Z0-9]/g, '')
+    .replace(/SA$/g, '')
+    .replace(/SOCIEDADANONIMA/g, '');
 }
 
 export function isRealized(s: unknown): boolean {
-  if (!s) return false;
-  const upper = String(s).toUpperCase();
-  return upper.includes('REALIZADO') || upper.includes('EJECUTADO') || upper.includes('ENVIADO') || upper.includes('REUNI') || upper.includes('SUPERVISI') || upper === 'SI';
+  const normalized = normalizeText(s);
+  return normalized === 'SI'
+    || normalized.includes('REALIZAD')
+    || normalized.includes('EJECUTAD')
+    || normalized.includes('ENVIAD')
+    || normalized.includes('REUNI')
+    || normalized.includes('SUPERVISI');
 }
 
 export function isProgrammed(s: unknown): boolean {
-  return !!s && String(s).toUpperCase().includes('PROGRAMADO');
+  return normalizeText(s).includes('PROGRAMAD');
 }
 
 export function getTaskType(row: DataRow): string {
-  const s = (row.STATUS || '').trim().toUpperCase();
-  if (s === 'REALIZADO' || s === 'EJECUTADO' || s === 'SI') {
-    const t = (row['TIPO DE VISITA'] || '').trim().toUpperCase();
-    return t || 'REALIZADO (OTROS)';
+  const status = normalizeText(row.STATUS);
+  if (status === 'SI' || status.includes('REALIZAD') || status.includes('EJECUTAD')) {
+    const visitType = normalizeText(row['TIPO DE VISITA']);
+    return visitType || 'REALIZADO (OTROS)';
   }
-  if (s === 'ENVIADO') return 'ENVIADO (REPORTE)';
-  return s || 'DESCONOCIDO';
+  if (status.includes('ENVIAD')) return 'ENVIADO (REPORTE)';
+  return status || 'DESCONOCIDO';
+}
+
+function parseExcelSerialDate(value: number): Date | null {
+  if (!Number.isFinite(value)) return null;
+
+  if (value > 20000 && value < 80000) {
+    const excelEpoch = new Date(1899, 11, 30);
+    const wholeDays = Math.floor(value);
+    const fractionalDay = value - wholeDays;
+    const baseDate = new Date(excelEpoch.getTime() + wholeDays * 86400000);
+    const totalSeconds = Math.round(fractionalDay * 86400);
+
+    return new Date(
+      baseDate.getFullYear(),
+      baseDate.getMonth(),
+      baseDate.getDate(),
+      Math.floor(totalSeconds / 3600),
+      Math.floor((totalSeconds % 3600) / 60),
+      totalSeconds % 60,
+    );
+  }
+
+  const asTimestamp = new Date(value);
+  return isNaN(asTimestamp.getTime()) ? null : asTimestamp;
+}
+
+function parseDateValue(fechaVal: unknown): Date | null {
+  if (!fechaVal) return null;
+
+  if (typeof fechaVal === 'object' && typeof (fechaVal as { toDate?: () => Date }).toDate === 'function') {
+    return (fechaVal as { toDate: () => Date }).toDate();
+  }
+
+  if (fechaVal instanceof Date) {
+    return isNaN(fechaVal.getTime()) ? null : fechaVal;
+  }
+
+  if (typeof fechaVal === 'number') {
+    return parseExcelSerialDate(fechaVal);
+  }
+
+  if (typeof fechaVal === 'string') {
+    const cleanStr = fechaVal.trim();
+    if (!cleanStr) return null;
+
+    if (/^\d+(\.\d+)?$/.test(cleanStr)) {
+      return parseExcelSerialDate(Number(cleanStr));
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(cleanStr)) {
+      const [year, month, day] = cleanStr.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    }
+
+    const latinDateMatch = cleanStr.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})(?:\s+.*)?$/);
+    if (latinDateMatch) {
+      const [, dayText, monthText, yearText] = latinDateMatch;
+      const day = Number(dayText);
+      const month = Number(monthText);
+      const year = yearText.length === 2 ? Number(`20${yearText}`) : Number(yearText);
+      const parsed = new Date(year, month - 1, day);
+      return isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    const parsed = new Date(cleanStr);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  return null;
+}
+
+function getDateParts(row: DataRow): { year: string; month: string } {
+  const explicitYear = (row.AÑO || '').toString().trim();
+  const explicitMonth = normalizeMonth(row.MES);
+
+  if (explicitYear && explicitMonth) {
+    return { year: explicitYear, month: explicitMonth };
+  }
+
+  const parsedDate = parseDateValue(row.FECHA);
+  if (!parsedDate) {
+    return { year: explicitYear, month: explicitMonth };
+  }
+
+  return {
+    year: explicitYear || parsedDate.getFullYear().toString(),
+    month: explicitMonth || MONTH_NAMES[parsedDate.getMonth()],
+  };
 }
 
 export function convertDatesAndFill(data: Record<string, unknown>[]): DataRow[] {
@@ -57,34 +158,28 @@ export function convertDatesAndFill(data: Record<string, unknown>[]): DataRow[] 
     const finalRow: DataRow = {};
     Object.keys(row).forEach(key => { finalRow[key.trim().toUpperCase()] = row[key]; });
 
-    let dateObj: Date | null = null;
-    const fechaVal = finalRow.FECHA;
-    if (fechaVal && typeof fechaVal === 'object' && typeof (fechaVal as any).toDate === 'function') {
-      // Firestore Timestamp
-      dateObj = (fechaVal as any).toDate();
-    } else if (fechaVal && typeof fechaVal === 'object' && (fechaVal as unknown) instanceof Date) {
-      dateObj = fechaVal as unknown as Date;
-    } else if (typeof fechaVal === 'string') {
-      const cleanStr = (fechaVal as string).trim();
-      if (/^\d{4}-\d{2}-\d{2}$/.test(cleanStr)) dateObj = new Date(cleanStr + 'T00:00:00');
-      else dateObj = new Date(cleanStr);
-    } else if (typeof fechaVal === 'number') dateObj = new Date(fechaVal as number);
+    if (finalRow.AÑO) finalRow.AÑO = String(finalRow.AÑO).trim();
+    if (finalRow.MES) finalRow.MES = normalizeMonth(finalRow.MES);
 
-    if (dateObj && !isNaN(dateObj.getTime())) {
-      finalRow.FECHA = dateObj.toISOString().split('T')[0];
-      if (!finalRow.AÑO) finalRow.AÑO = dateObj.getFullYear().toString();
-      if (!finalRow.MES) {
-        finalRow.MES = MONTH_NAMES[dateObj.getMonth()];
-      }
+    const dateObj = parseDateValue(finalRow.FECHA);
+    if (dateObj) {
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      finalRow.FECHA = `${year}-${month}-${day}`;
+      if (!finalRow.AÑO) finalRow.AÑO = year.toString();
+      if (!finalRow.MES) finalRow.MES = MONTH_NAMES[dateObj.getMonth()];
     }
+
     return finalRow;
   });
 }
 
 export function filterByYearMonth(data: DataRow[], year: string, month: string): DataRow[] {
   return data.filter(row => {
-    const yearMatch = year === 'all' || (row.AÑO || '').toString().trim() === year;
-    const monthMatch = month === 'all' || normalizeMonth(row.MES) === month;
+    const { year: rowYear, month: rowMonth } = getDateParts(row);
+    const yearMatch = year === 'all' || rowYear === year;
+    const monthMatch = month === 'all' || rowMonth === month;
     return yearMatch && monthMatch;
   });
 }
@@ -118,10 +213,10 @@ export function computeMonthlyData(data: DataRow[]) {
   const byMonth: Record<string, { realized: number; meta: number; other: number }> = {};
   MONTH_NAMES.forEach(m => { byMonth[m] = { realized: 0, meta: 0, other: 0 }; });
   data.forEach(row => {
-    const mes = normalizeMonth(row.MES);
-    if (byMonth[mes]) {
-      if (isRealized(row.STATUS)) byMonth[mes].realized++;
-      if (isProgrammed(row.STATUS)) byMonth[mes].meta++;
+    const { month } = getDateParts(row);
+    if (byMonth[month]) {
+      if (isRealized(row.STATUS)) byMonth[month].realized++;
+      if (isProgrammed(row.STATUS)) byMonth[month].meta++;
     }
   });
   MONTH_NAMES.forEach(m => { byMonth[m].other = Math.max(0, byMonth[m].meta - byMonth[m].realized); });
@@ -213,8 +308,10 @@ export function computeBalanceData(data: DataRow[], unit: TimeUnit, supFilter: s
 
 export function getYears(supData: DataRow[], ejecData: DataRow[]): string[] {
   const years = new Set<string>();
-  supData.forEach(d => { if (d.AÑO) years.add(d.AÑO.toString()); });
-  ejecData.forEach(d => { if (d.AÑO) years.add(d.AÑO.toString()); });
+  [...supData, ...ejecData].forEach(row => {
+    const { year } = getDateParts(row);
+    if (year) years.add(year);
+  });
   return Array.from(years).sort();
 }
 
