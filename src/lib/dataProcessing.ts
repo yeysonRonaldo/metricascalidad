@@ -58,12 +58,17 @@ export function convertDatesAndFill(data: Record<string, unknown>[]): DataRow[] 
     Object.keys(row).forEach(key => { finalRow[key.trim().toUpperCase()] = row[key]; });
 
     let dateObj: Date | null = null;
-    if (finalRow.FECHA && typeof finalRow.FECHA === 'object' && (finalRow.FECHA as unknown) instanceof Date) dateObj = finalRow.FECHA as unknown as Date;
-    else if (typeof finalRow.FECHA === 'string') {
-      const cleanStr = (finalRow.FECHA as string).trim();
+    const fechaVal = finalRow.FECHA;
+    if (fechaVal && typeof fechaVal === 'object' && typeof (fechaVal as any).toDate === 'function') {
+      // Firestore Timestamp
+      dateObj = (fechaVal as any).toDate();
+    } else if (fechaVal && typeof fechaVal === 'object' && (fechaVal as unknown) instanceof Date) {
+      dateObj = fechaVal as unknown as Date;
+    } else if (typeof fechaVal === 'string') {
+      const cleanStr = (fechaVal as string).trim();
       if (/^\d{4}-\d{2}-\d{2}$/.test(cleanStr)) dateObj = new Date(cleanStr + 'T00:00:00');
       else dateObj = new Date(cleanStr);
-    } else if (typeof finalRow.FECHA === 'number') dateObj = new Date(finalRow.FECHA as number);
+    } else if (typeof fechaVal === 'number') dateObj = new Date(fechaVal as number);
 
     if (dateObj && !isNaN(dateObj.getTime())) {
       finalRow.FECHA = dateObj.toISOString().split('T')[0];
