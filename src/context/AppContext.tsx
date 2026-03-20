@@ -66,6 +66,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       yearFilter: latestYear,
       activeTab: defaultTab,
       isLoading: false,
+      lastSync: new Date(),
     }));
   }, []);
 
