@@ -22,6 +22,7 @@ interface AppContextType extends AppState {
   setMonthFilter: (m: string) => void;
   handleFileUpload: (file: File) => void;
   loadFromFirestore: () => Promise<void>;
+  syncFromGoogleSheets: () => Promise<void>;
   hasData: boolean;
 }
 
