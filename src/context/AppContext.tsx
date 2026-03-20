@@ -146,7 +146,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setState(s => ({ ...s, isLoading: true }));
     try {
       const { supData, ejecData } = await fetchFromGoogleSheets();
+      const supRealized = supData.filter(r => isRealized(r.STATUS)).length;
+      const ejecRealized = ejecData.filter(r => isRealized(r.STATUS)).length;
       processData(supData, ejecData);
+      toast.success(`Sincronizado: ${supData.length} supervisores (${supRealized} realizados), ${ejecData.length} ejecutivos (${ejecRealized} realizados)`);
       // Save to Firestore in background
       const promises: Promise<void>[] = [];
       if (supData.length > 0) promises.push(saveSupData(supData));
@@ -156,7 +159,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         .catch(err => console.error('Error saving to Firestore:', err));
     } catch (err) {
       console.error('Error syncing from Google Sheets:', err);
-      setState(s => ({ ...s, isLoading: false }));
+      toast.error('Error al sincronizar. Cargando datos guardados...');
+      // Fallback to Firestore
+      try {
+        const { supData, ejecData } = await fetchVisitasData();
+        processData(supData, ejecData);
+      } catch {
+        setState(s => ({ ...s, isLoading: false }));
+      }
     }
   }, [processData]);
 
