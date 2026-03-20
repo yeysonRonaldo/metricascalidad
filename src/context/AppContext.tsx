@@ -42,6 +42,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     yearFilter: '2026',
     monthFilter: 'all',
     isLoading: false,
+    lastSync: null,
   });
 
   const setActiveTab = useCallback((tab: TabName) => setState(s => ({ ...s, activeTab: tab })), []);
