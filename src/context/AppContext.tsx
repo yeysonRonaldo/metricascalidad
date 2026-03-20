@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, typ
 import type { DataRow, TabName, TimeUnit } from '@/types/metrics';
 import { convertDatesAndFill } from '@/lib/dataProcessing';
 import { fetchVisitasData, saveSupData, saveEjecData } from '@/lib/firestoreService';
+import { fetchFromGoogleSheets } from '@/lib/googleSheetsService';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 
@@ -12,6 +13,7 @@ interface AppState {
   yearFilter: string;
   monthFilter: string;
   isLoading: boolean;
+  lastSync: Date | null;
 }
 
 interface AppContextType extends AppState {
