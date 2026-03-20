@@ -54,11 +54,16 @@ function parseCSVLine(line: string): string[] {
 
 async function fetchCSV(gid: string): Promise<DataRow[]> {
   const url = buildCsvUrl(gid);
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    cache: 'no-store',
+    headers: { 'Cache-Control': 'no-cache' },
+  });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const text = await response.text();
   const raw = parseCSV(text);
-  return convertDatesAndFill(raw);
+  const processed = convertDatesAndFill(raw);
+  console.log(`[GoogleSheets] GID ${gid}: ${raw.length} filas crudas → ${processed.length} procesadas`);
+  return processed;
 }
 
 export async function fetchFromGoogleSheets(): Promise<{ supData: DataRow[]; ejecData: DataRow[] }> {
