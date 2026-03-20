@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, typ
 import type { DataRow, TabName, TimeUnit } from '@/types/metrics';
 import { convertDatesAndFill } from '@/lib/dataProcessing';
 import { fetchVisitasData, saveSupData, saveEjecData } from '@/lib/firestoreService';
+import { fetchFromGoogleSheets } from '@/lib/googleSheetsService';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 
@@ -12,6 +13,7 @@ interface AppState {
   yearFilter: string;
   monthFilter: string;
   isLoading: boolean;
+  lastSync: Date | null;
 }
 
 interface AppContextType extends AppState {
@@ -20,6 +22,7 @@ interface AppContextType extends AppState {
   setMonthFilter: (m: string) => void;
   handleFileUpload: (file: File) => void;
   loadFromFirestore: () => Promise<void>;
+  syncFromGoogleSheets: () => Promise<void>;
   hasData: boolean;
 }
 
@@ -39,6 +42,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     yearFilter: '2026',
     monthFilter: 'all',
     isLoading: false,
+    lastSync: null,
   });
 
   const setActiveTab = useCallback((tab: TabName) => setState(s => ({ ...s, activeTab: tab })), []);
@@ -62,6 +66,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       yearFilter: latestYear,
       activeTab: defaultTab,
       isLoading: false,
+      lastSync: new Date(),
     }));
   }, []);
 
@@ -136,6 +141,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [processData]);
 
+  const syncFromGoogleSheets = useCallback(async () => {
+    setState(s => ({ ...s, isLoading: true }));
+    try {
+      const { supData, ejecData } = await fetchFromGoogleSheets();
+      processData(supData, ejecData);
+      // Save to Firestore in background
+      const promises: Promise<void>[] = [];
+      if (supData.length > 0) promises.push(saveSupData(supData));
+      if (ejecData.length > 0) promises.push(saveEjecData(ejecData));
+      Promise.all(promises)
+        .then(() => console.log('Google Sheets data saved to Firestore ✅'))
+        .catch(err => console.error('Error saving to Firestore:', err));
+    } catch (err) {
+      console.error('Error syncing from Google Sheets:', err);
+      setState(s => ({ ...s, isLoading: false }));
+    }
+  }, [processData]);
+
   // Save to Firestore after file upload
   const saveAfterUpload = useCallback(async (sup: DataRow[], ejec: DataRow[]) => {
     try {
@@ -149,15 +172,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Auto-load from Firestore on mount
+  // Auto-sync from Google Sheets on mount
   useEffect(() => {
-    loadFromFirestore();
-  }, [loadFromFirestore]);
+    syncFromGoogleSheets();
+  }, [syncFromGoogleSheets]);
 
   const hasData = state.supData.length > 0 || state.ejecData.length > 0;
 
   return (
-    <AppContext.Provider value={{ ...state, setActiveTab, setYearFilter, setMonthFilter, handleFileUpload, loadFromFirestore, hasData }}>
+    <AppContext.Provider value={{ ...state, setActiveTab, setYearFilter, setMonthFilter, handleFileUpload, loadFromFirestore, syncFromGoogleSheets, hasData }}>
       {children}
     </AppContext.Provider>
   );
