@@ -47,8 +47,13 @@ export default function Header() {
             </div>
 
             <div className="flex items-center gap-1.5">
-              <button onClick={() => loadFromFirestore()} className="bg-primary-foreground/15 hover:bg-primary-foreground/25 p-2 rounded-lg text-sm transition active:scale-95" title="Recargar desde Firebase">
-                <RefreshCw className="w-4 h-4" />
+              {lastSync && (
+                <span className="text-[10px] text-primary-foreground/60 hidden sm:inline mr-1">
+                  {lastSync.toLocaleDateString('es-GT', { day: '2-digit', month: 'short' })} {lastSync.toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+              <button onClick={() => syncFromGoogleSheets()} disabled={isLoading} className="bg-primary-foreground/15 hover:bg-primary-foreground/25 p-2 rounded-lg text-sm transition active:scale-95 disabled:opacity-50" title="Sincronizar desde Google Sheets">
+                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
               </button>
               <button onClick={() => fileRef.current?.click()} className="bg-primary-foreground/15 hover:bg-primary-foreground/25 px-3 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1.5 active:scale-95">
                 <FileSpreadsheet className="w-4 h-4" />
