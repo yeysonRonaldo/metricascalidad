@@ -16,6 +16,8 @@ interface DashboardSectionProps {
 export default function DashboardSection({ type }: DashboardSectionProps) {
   const { supData, ejecData, yearFilter, monthFilter } = useAppContext();
   const [timeUnit, setTimeUnit] = useState<TimeUnit>('month');
+  const [exporting, setExporting] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const rawData = type === 'SUPERVISOR' ? supData : ejecData;
   const field = type === 'SUPERVISOR' ? 'SUPERVISOR' as const : 'EJECUTIVO' as const;
