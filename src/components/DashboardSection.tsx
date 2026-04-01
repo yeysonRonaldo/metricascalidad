@@ -1,10 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useAppContext } from '@/context/AppContext';
 import { filterByYearMonth, computeSupervisorStats, computeMonthlyData, groupDataByTime, isProgrammed, isRealized } from '@/lib/dataProcessing';
 import KPICards from '@/components/KPICards';
 import GoalCards from '@/components/GoalCards';
 import { MonthlyBarChart, ParticipationDoughnut, SupervisorStackChart, TimeLineChart, GestionPieChart, IndividualGestionPies } from '@/components/Charts';
 import type { TimeUnit } from '@/types/metrics';
+import { exportDashboardToPdf } from '@/lib/exportPdf';
+import { FileDown } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface DashboardSectionProps {
   type: 'SUPERVISOR' | 'EJECUTIVO';
