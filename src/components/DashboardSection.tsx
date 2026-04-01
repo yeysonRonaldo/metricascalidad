@@ -38,13 +38,34 @@ export default function DashboardSection({ type }: DashboardSectionProps) {
     if (s.realized > topCount) { topCount = s.realized; topPerson = name; }
   }
 
-  const sectionTitle = type === 'SUPERVISOR' ? 'Rendimiento de Supervisores' : 'Rendimiento de Ejecutivos';
-  const icon = type === 'SUPERVISOR' ? '👔' : '💼';
+  const handleExportPdf = async () => {
+    if (!containerRef.current) return;
+    setExporting(true);
+    toast.info('Generando PDF...');
+    try {
+      const filterLabel = `${yearFilter === 'all' ? 'Todos' : yearFilter} - ${monthFilter === 'all' ? 'Todos los meses' : monthFilter}`;
+      await exportDashboardToPdf(containerRef.current, `${sectionTitle} (${filterLabel})`);
+      toast.success('PDF descargado ✅');
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al generar el PDF');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
-    <div className="space-y-8 pb-10">
-      <div className="border-b-2 border-primary/10 pb-2 mb-4">
+    <div ref={containerRef} className="space-y-8 pb-10">
+      <div className="border-b-2 border-primary/10 pb-2 mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">{icon} {sectionTitle}</h1>
+        <button
+          onClick={handleExportPdf}
+          disabled={exporting}
+          className="flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-primary/90 transition active:scale-95 disabled:opacity-50 print:hidden"
+        >
+          <FileDown className="w-4 h-4" />
+          {exporting ? 'Generando...' : 'Exportar PDF'}
+        </button>
       </div>
 
       <KPICards metaCount={metaCount} realizedCount={realizedCount} missingCount={missingCount} realizedPct={realizedPct} topPerson={topPerson} topLabel={type === 'SUPERVISOR' ? 'Supervisor Top' : 'Ejecutivo Top'} />
