@@ -2,30 +2,11 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
 export async function exportDashboardToPdf(element: HTMLElement, title: string) {
-  const canvas = await html2canvas(element, {
-    scale: 2,
-    useCORS: true,
-    logging: false,
-    backgroundColor: '#ffffff',
-    windowWidth: element.scrollWidth,
-    windowHeight: element.scrollHeight,
-  });
-
-  const imgData = canvas.toDataURL('image/jpeg', 0.95);
-  const imgWidth = canvas.width;
-  const imgHeight = canvas.height;
-
-  const pdfWidth = 210; // A4 width in mm
-  const pdfPageHeight = 297; // A4 height in mm
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pdfWidth = 210;
+  const pdfPageHeight = 297;
   const margin = 10;
   const contentWidth = pdfWidth - margin * 2;
-  const ratio = contentWidth / imgWidth;
-  const scaledHeight = imgHeight * ratio;
-
-  const pdf = new jsPDF('p', 'mm', 'a4');
-  let position = margin;
-  let remainingHeight = scaledHeight;
-  const pageContentHeight = pdfPageHeight - margin * 2;
 
   // Add title on first page
   pdf.setFontSize(14);
@@ -34,43 +15,77 @@ export async function exportDashboardToPdf(element: HTMLElement, title: string) 
   pdf.setFontSize(9);
   pdf.setTextColor(130, 130, 130);
   pdf.text(`Generado: ${new Date().toLocaleString('es-GT')}`, margin, margin + 11);
-  
-  const titleOffset = 16;
-  position = margin + titleOffset;
-  const firstPageContent = pageContentHeight - titleOffset;
 
-  if (remainingHeight <= firstPageContent) {
-    pdf.addImage(imgData, 'JPEG', margin, position, contentWidth, scaledHeight);
-  } else {
-    let srcY = 0;
-    let availableHeight = firstPageContent;
-    let isFirstPage = true;
+  // Collect all chart blocks and other sections
+  const blocks = collectBlocks(element);
 
-    while (remainingHeight > 0) {
-      const sliceHeight = Math.min(availableHeight, remainingHeight);
-      const srcSliceHeight = sliceHeight / ratio;
+  let currentY = margin + 16;
 
-      // Create a temporary canvas for this slice
-      const sliceCanvas = document.createElement('canvas');
-      sliceCanvas.width = imgWidth;
-      sliceCanvas.height = srcSliceHeight;
-      const ctx = sliceCanvas.getContext('2d')!;
-      ctx.drawImage(canvas, 0, srcY, imgWidth, srcSliceHeight, 0, 0, imgWidth, srcSliceHeight);
+  for (const block of blocks) {
+    const canvas = await html2canvas(block, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+    });
 
-      const sliceData = sliceCanvas.toDataURL('image/jpeg', 0.95);
-      const yPos = isFirstPage ? position : margin;
-      pdf.addImage(sliceData, 'JPEG', margin, yPos, contentWidth, sliceHeight);
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const ratio = contentWidth / canvas.width;
+    const blockHeight = canvas.height * ratio;
 
-      srcY += srcSliceHeight;
-      remainingHeight -= sliceHeight;
+    // If this block doesn't fit on current page, start a new page
+    if (currentY + blockHeight > pdfPageHeight - margin && currentY > margin + 20) {
+      pdf.addPage();
+      currentY = margin;
+    }
 
-      if (remainingHeight > 0) {
-        pdf.addPage();
-        availableHeight = pageContentHeight;
-        isFirstPage = false;
-      }
+    // If single block is taller than a full page, scale it down to fit
+    if (blockHeight > pdfPageHeight - margin * 2) {
+      const scale = (pdfPageHeight - margin * 2) / blockHeight;
+      const scaledWidth = contentWidth * scale;
+      const scaledHeight = blockHeight * scale;
+      const xOffset = margin + (contentWidth - scaledWidth) / 2;
+      pdf.addImage(imgData, 'JPEG', xOffset, currentY, scaledWidth, scaledHeight);
+      currentY += scaledHeight + 4;
+    } else {
+      pdf.addImage(imgData, 'JPEG', margin, currentY, contentWidth, blockHeight);
+      currentY += blockHeight + 4;
     }
   }
 
-  pdf.save(`${title.replace(/\s+/g, '_')}.pdf`);
+  pdf.save(`${title.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '_')}.pdf`);
+}
+
+function collectBlocks(container: HTMLElement): HTMLElement[] {
+  const blocks: HTMLElement[] = [];
+
+  // First try to get .chart-block elements (individual charts)
+  const chartBlocks = container.querySelectorAll<HTMLElement>('.chart-block');
+  
+  if (chartBlocks.length > 0) {
+    // Also collect non-chart-block direct children (like KPI cards, headers, grids)
+    const children = Array.from(container.children) as HTMLElement[];
+    
+    for (const child of children) {
+      if (child.classList.contains('chart-block')) {
+        blocks.push(child);
+      } else {
+        // Check if this element contains chart-blocks inside
+        const innerCharts = child.querySelectorAll<HTMLElement>('.chart-block');
+        if (innerCharts.length > 0) {
+          // Add non-chart siblings and then charts separately
+          innerCharts.forEach(c => blocks.push(c));
+        } else {
+          // It's a non-chart block (KPIs, section headers, grids, etc.)
+          blocks.push(child);
+        }
+      }
+    }
+  } else {
+    // Fallback: treat each direct child as a block
+    const children = Array.from(container.children) as HTMLElement[];
+    children.forEach(c => blocks.push(c));
+  }
+
+  return blocks;
 }
