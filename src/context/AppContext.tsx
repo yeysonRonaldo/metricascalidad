@@ -25,6 +25,7 @@ interface AppContextType extends AppState {
   loadFromFirestore: () => Promise<void>;
   syncFromGoogleSheets: () => Promise<void>;
   updateRow: (type: 'sup' | 'ejec', index: number, field: string, value: string) => Promise<void>;
+  deleteRow: (type: 'sup' | 'ejec', index: number) => Promise<void>;
   hasData: boolean;
 }
 
