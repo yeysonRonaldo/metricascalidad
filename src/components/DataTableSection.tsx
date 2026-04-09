@@ -287,8 +287,8 @@ export default function DataTableSection() {
         </Popover>
 
         {/* Clear filters */}
-        {(statusFilter !== 'all' || nameFilter !== 'all' || dateFrom || dateTo) && (
-          <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setStatusFilter('all'); setNameFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}>
+        {(statusFilter !== 'all' || nameFilter !== 'all' || mesFilter !== 'all' || dateFrom || dateTo) && (
+          <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setStatusFilter('all'); setNameFilter('all'); setMesFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}>
             <X className="w-3 h-3 mr-1" /> Limpiar
           </Button>
         )}
