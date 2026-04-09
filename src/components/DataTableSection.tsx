@@ -319,14 +319,16 @@ export default function DataTableSection() {
         <div className="overflow-x-auto max-h-[calc(100vh-280px)]">
           <table className="w-full text-sm">
             <thead className="bg-muted/80 sticky top-0 z-10">
-              <tr>
-                <th className="px-3 py-2.5 text-left font-semibold text-xs text-muted-foreground w-8">#</th>
-                {columns.map(c => (
-                  <th key={c.key} className="px-3 py-2.5 text-left font-semibold text-xs text-muted-foreground whitespace-nowrap">
-                    {c.label}
-                    {c.editable && <Pencil className="w-3 h-3 inline ml-1 opacity-40" />}
-                  </th>
-                ))}
+               <tr>
+                 <th className="px-3 py-2.5 text-left font-semibold text-xs text-muted-foreground w-8">#</th>
+                 {columns.map(c => (
+                   <th key={c.key} className="px-3 py-2.5 text-left font-semibold text-xs text-muted-foreground whitespace-nowrap">
+                     {c.label}
+                     {c.editable && <Pencil className="w-3 h-3 inline ml-1 opacity-40" />}
+                   </th>
+                 ))}
+                 <th className="px-3 py-2.5 text-center font-semibold text-xs text-muted-foreground w-10"></th>
+               </tr>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
