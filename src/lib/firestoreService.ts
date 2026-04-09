@@ -92,12 +92,12 @@ async function saveToCollection(collectionName: string, data: DataRow[], type: '
   console.log(`Firestore [${collectionName}]: ${writeCount} escritos${replace ? ' (reemplazo completo)' : ''}`);
 }
 
-export async function saveSupData(data: DataRow[]): Promise<void> {
-  await saveToCollection(COLLECTION_SUP, data, 'sup');
+export async function saveSupData(data: DataRow[], replace = false): Promise<void> {
+  await saveToCollection(COLLECTION_SUP, data, 'sup', replace);
 }
 
-export async function saveEjecData(data: DataRow[]): Promise<void> {
-  await saveToCollection(COLLECTION_EJEC, data, 'ejec');
+export async function saveEjecData(data: DataRow[], replace = false): Promise<void> {
+  await saveToCollection(COLLECTION_EJEC, data, 'ejec', replace);
 }
 
 export async function updateRowInFirestore(
