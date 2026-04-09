@@ -77,6 +77,12 @@ export default function DataTableSection() {
       data = data.filter(r => (r[personField] || '').toString().toUpperCase().includes(q));
     }
 
+    // Month filter (partial match)
+    if (mesFilter !== 'all') {
+      const q = mesFilter.toUpperCase();
+      data = data.filter(r => (r.MES || '').toString().toUpperCase().includes(q));
+    }
+
     // Date range filter
     if (dateFrom || dateTo) {
       data = data.filter(r => {
