@@ -52,6 +52,16 @@ export default function DataTableSection() {
     return Array.from(statuses).sort();
   }, [rawData]);
 
+  // Unique months in data
+  const uniqueMonths = useMemo(() => {
+    const months = new Set<string>();
+    rawData.forEach(r => {
+      const m = (r.MES || '').toString().trim();
+      if (m) months.add(m);
+    });
+    return Array.from(months);
+  }, [rawData]);
+
   const filtered = useMemo(() => {
     let data = filterByYearMonth(rawData, yearFilter, monthFilter);
 
