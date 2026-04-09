@@ -113,3 +113,9 @@ export async function updateRowInFirestore(
     }
   }
 }
+
+export async function deleteRowFromFirestore(type: 'sup' | 'ejec', row: DataRow): Promise<void> {
+  const collectionName = type === 'sup' ? COLLECTION_SUP : COLLECTION_EJEC;
+  const docId = generateRowId(row, type);
+  await deleteDoc(doc(db, collectionName, docId));
+}
