@@ -154,8 +154,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toast.success(`Sincronizado: ${supData.length} supervisores (${supRealized} realizados), ${ejecData.length} ejecutivos (${ejecRealized} realizados)`);
       // Save to Firestore in background
       const promises: Promise<void>[] = [];
-      if (supData.length > 0) promises.push(saveSupData(supData));
-      if (ejecData.length > 0) promises.push(saveEjecData(ejecData));
+      if (supData.length > 0) promises.push(saveSupData(supData, true));
+      if (ejecData.length > 0) promises.push(saveEjecData(ejecData, true));
       Promise.all(promises)
         .then(() => console.log('Google Sheets data saved to Firestore ✅'))
         .catch(err => console.error('Error saving to Firestore:', err));
