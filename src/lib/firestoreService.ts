@@ -1,4 +1,4 @@
-import { collection, getDocs, doc, writeBatch } from "firebase/firestore";
+import { collection, getDocs, doc, writeBatch, updateDoc, setDoc, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { convertDatesAndFill } from "@/lib/dataProcessing";
 import type { DataRow } from "@/types/metrics";
@@ -81,4 +81,35 @@ export async function saveSupData(data: DataRow[]): Promise<void> {
 
 export async function saveEjecData(data: DataRow[]): Promise<void> {
   await saveToCollection(COLLECTION_EJEC, data, 'ejec');
+}
+
+export async function updateRowInFirestore(
+  type: 'sup' | 'ejec',
+  oldRow: DataRow,
+  field: string,
+  newValue: string
+): Promise<void> {
+  const collectionName = type === 'sup' ? COLLECTION_SUP : COLLECTION_EJEC;
+  const oldDocId = generateRowId(oldRow, type);
+  
+  // Create updated row
+  const updatedRow = { ...oldRow, [field]: newValue };
+  delete updatedRow._ROLE;
+  
+  // If key fields changed, we need to delete old doc and create new one
+  const keyFields = ['FECHA', 'SUPERVISOR', 'EJECUTIVO', 'CLIENTE', 'SUCURSAL', 'STATUS'];
+  if (keyFields.includes(field)) {
+    const newDocId = generateRowId(updatedRow, type);
+    // Delete old, create new
+    try { await deleteDoc(doc(db, collectionName, oldDocId)); } catch { /* ignore */ }
+    await setDoc(doc(db, collectionName, newDocId), updatedRow);
+  } else {
+    // Just update in place
+    try {
+      await updateDoc(doc(db, collectionName, oldDocId), { [field]: newValue });
+    } catch {
+      // Doc might not exist, create it
+      await setDoc(doc(db, collectionName, oldDocId), updatedRow);
+    }
+  }
 }
