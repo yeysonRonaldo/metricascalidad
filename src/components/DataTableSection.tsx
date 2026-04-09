@@ -98,6 +98,7 @@ export default function DataTableSection() {
 
   const columns = [
     { key: 'FECHA', label: 'Fecha', editable: false },
+    { key: 'MES', label: 'Mes', editable: true },
     { key: personField, label: dataType === 'sup' ? 'Supervisor' : 'Ejecutivo', editable: true },
     { key: 'CLIENTE', label: 'Cliente', editable: true },
     { key: 'SUCURSAL', label: 'Sucursal', editable: true },
