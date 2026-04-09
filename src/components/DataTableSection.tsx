@@ -22,6 +22,7 @@ export default function DataTableSection() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [nameFilter, setNameFilter] = useState('all');
+  const [mesFilter, setMesFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [editingCell, setEditingCell] = useState<{ rowIdx: number; field: string } | null>(null);
@@ -51,6 +52,16 @@ export default function DataTableSection() {
     return Array.from(statuses).sort();
   }, [rawData]);
 
+  // Unique months in data
+  const uniqueMonths = useMemo(() => {
+    const months = new Set<string>();
+    rawData.forEach(r => {
+      const m = (r.MES || '').toString().trim();
+      if (m) months.add(m);
+    });
+    return Array.from(months);
+  }, [rawData]);
+
   const filtered = useMemo(() => {
     let data = filterByYearMonth(rawData, yearFilter, monthFilter);
 
@@ -64,6 +75,12 @@ export default function DataTableSection() {
     if (nameFilter !== 'all') {
       const q = nameFilter.toUpperCase();
       data = data.filter(r => (r[personField] || '').toString().toUpperCase().includes(q));
+    }
+
+    // Month filter (partial match)
+    if (mesFilter !== 'all') {
+      const q = mesFilter.toUpperCase();
+      data = data.filter(r => (r.MES || '').toString().toUpperCase().includes(q));
     }
 
     // Date range filter
@@ -96,7 +113,7 @@ export default function DataTableSection() {
     }
 
     return data;
-  }, [rawData, yearFilter, monthFilter, search, statusFilter, nameFilter, dateFrom, dateTo, personField]);
+  }, [rawData, yearFilter, monthFilter, search, statusFilter, nameFilter, mesFilter, dateFrom, dateTo, personField]);
 
   const columns = [
     { key: 'FECHA', label: 'Fecha', editable: false },
@@ -163,13 +180,13 @@ export default function DataTableSection() {
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex bg-muted rounded-lg p-0.5">
           <button
-            onClick={() => { setDataType('sup'); setSearch(''); setEditingCell(null); setStatusFilter('all'); setNameFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}
+            onClick={() => { setDataType('sup'); setSearch(''); setEditingCell(null); setStatusFilter('all'); setNameFilter('all'); setMesFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}
             className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${dataType === 'sup' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
           >
             Supervisores ({supData.length})
           </button>
           <button
-            onClick={() => { setDataType('ejec'); setSearch(''); setEditingCell(null); setStatusFilter('all'); setNameFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}
+            onClick={() => { setDataType('ejec'); setSearch(''); setEditingCell(null); setStatusFilter('all'); setNameFilter('all'); setMesFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}
             className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${dataType === 'ejec' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
           >
             Ejecutivos ({ejecData.length})
@@ -227,6 +244,22 @@ export default function DataTableSection() {
           </datalist>
         </div>
 
+        {/* Month filter - searchable */}
+        <div className="relative">
+          <Input
+            placeholder="Filtrar mes..."
+            value={mesFilter === 'all' ? '' : mesFilter}
+            onChange={e => setMesFilter(e.target.value || 'all')}
+            list={`mes-list-${dataType}`}
+            className="h-8 text-xs w-[140px] bg-background"
+          />
+          <datalist id={`mes-list-${dataType}`}>
+            {uniqueMonths.map(m => (
+              <option key={m} value={m} />
+            ))}
+          </datalist>
+        </div>
+
         {/* Date from */}
         <Popover>
           <PopoverTrigger asChild>
@@ -254,8 +287,8 @@ export default function DataTableSection() {
         </Popover>
 
         {/* Clear filters */}
-        {(statusFilter !== 'all' || nameFilter !== 'all' || dateFrom || dateTo) && (
-          <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setStatusFilter('all'); setNameFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}>
+        {(statusFilter !== 'all' || nameFilter !== 'all' || mesFilter !== 'all' || dateFrom || dateTo) && (
+          <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setStatusFilter('all'); setNameFilter('all'); setMesFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}>
             <X className="w-3 h-3 mr-1" /> Limpiar
           </Button>
         )}
