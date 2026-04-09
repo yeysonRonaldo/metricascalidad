@@ -18,6 +18,8 @@ function parseCSV(text: string): Record<string, unknown>[] {
   
   for (let i = 1; i < lines.length; i++) {
     const values = parseCSVLine(lines[i]);
+    // Skip rows where all values are empty
+    if (values.every(v => v.trim() === '')) continue;
     const row: Record<string, unknown> = {};
     headers.forEach((h, idx) => {
       row[h.trim()] = (values[idx] || '').trim();
