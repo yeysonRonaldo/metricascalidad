@@ -22,6 +22,7 @@ export default function DataTableSection() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [nameFilter, setNameFilter] = useState('all');
+  const [mesFilter, setMesFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [editingCell, setEditingCell] = useState<{ rowIdx: number; field: string } | null>(null);
