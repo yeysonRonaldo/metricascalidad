@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { DataRow, TabName, TimeUnit } from '@/types/metrics';
 import { convertDatesAndFill, isRealized } from '@/lib/dataProcessing';
-import { fetchVisitasData, saveSupData, saveEjecData, updateRowInFirestore } from '@/lib/firestoreService';
+import { fetchVisitasData, saveSupData, saveEjecData, updateRowInFirestore, deleteRowFromFirestore } from '@/lib/firestoreService';
 import { fetchFromGoogleSheets } from '@/lib/googleSheetsService';
 import { toast } from 'sonner';
 import Papa from 'papaparse';
@@ -25,6 +25,7 @@ interface AppContextType extends AppState {
   loadFromFirestore: () => Promise<void>;
   syncFromGoogleSheets: () => Promise<void>;
   updateRow: (type: 'sup' | 'ejec', index: number, field: string, value: string) => Promise<void>;
+  deleteRow: (type: 'sup' | 'ejec', index: number) => Promise<void>;
   hasData: boolean;
 }
 
@@ -200,6 +201,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await updateRowInFirestore(type, oldRow, field, value);
   }, [state.supData, state.ejecData]);
 
+  const deleteRow = useCallback(async (type: 'sup' | 'ejec', index: number) => {
+    const dataKey = type === 'sup' ? 'supData' : 'ejecData';
+    const row = state[dataKey][index];
+    if (!row) throw new Error('Row not found');
+
+    setState(s => {
+      const newData = [...s[dataKey]];
+      newData.splice(index, 1);
+      return { ...s, [dataKey]: newData };
+    });
+
+    await deleteRowFromFirestore(type, row);
+  }, [state.supData, state.ejecData]);
+
   // Auto-sync from Google Sheets on mount
   useEffect(() => {
     syncFromGoogleSheets();
@@ -208,7 +223,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const hasData = state.supData.length > 0 || state.ejecData.length > 0;
 
   return (
-    <AppContext.Provider value={{ ...state, setActiveTab, setYearFilter, setMonthFilter, handleFileUpload, loadFromFirestore, syncFromGoogleSheets, updateRow, hasData }}>
+    <AppContext.Provider value={{ ...state, setActiveTab, setYearFilter, setMonthFilter, handleFileUpload, loadFromFirestore, syncFromGoogleSheets, updateRow, deleteRow, hasData }}>
       {children}
     </AppContext.Provider>
   );

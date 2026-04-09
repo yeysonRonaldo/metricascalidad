@@ -4,7 +4,7 @@ import { filterByYearMonth } from '@/lib/dataProcessing';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Search, Database, X, Check, Pencil, CalendarIcon, Filter } from 'lucide-react';
+import { Search, Database, X, Check, Pencil, CalendarIcon, Filter, Trash2 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ type DataType = 'sup' | 'ejec';
 const STATUS_OPTIONS = ['REALIZADO', 'PROGRAMADO', 'CANCELADO', 'REPROGRAMADO', 'NO REALIZADO', 'PENDIENTE'];
 
 export default function DataTableSection() {
-  const { supData, ejecData, yearFilter, monthFilter, updateRow } = useAppContext();
+  const { supData, ejecData, yearFilter, monthFilter, updateRow, deleteRow } = useAppContext();
   const [dataType, setDataType] = useState<DataType>('sup');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -28,6 +28,7 @@ export default function DataTableSection() {
   const [editingCell, setEditingCell] = useState<{ rowIdx: number; field: string } | null>(null);
   const [editValue, setEditValue] = useState('');
   const [saving, setSaving] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState<number | null>(null);
 
   const rawData = dataType === 'sup' ? supData : ejecData;
   const personField = dataType === 'sup' ? 'SUPERVISOR' : 'EJECUTIVO';
@@ -157,6 +158,25 @@ export default function DataTableSection() {
       setEditValue('');
     }
   }, [editingCell, editValue, filtered, rawData, dataType, updateRow]);
+
+  const handleDelete = useCallback(async (rowIdx: number) => {
+    const row = filtered[rowIdx];
+    if (!row) return;
+    const originalIdx = rawData.indexOf(row);
+    if (originalIdx === -1) return;
+    if (!window.confirm('¿Estás seguro de eliminar este registro?')) return;
+
+    setDeleting(rowIdx);
+    try {
+      await deleteRow(dataType, originalIdx);
+      toast.success('Registro eliminado 🗑️');
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al eliminar');
+    } finally {
+      setDeleting(null);
+    }
+  }, [filtered, rawData, dataType, deleteRow]);
 
   const getStatusColor = (status: string) => {
     const s = (status || '').toUpperCase();
@@ -299,15 +319,16 @@ export default function DataTableSection() {
         <div className="overflow-x-auto max-h-[calc(100vh-280px)]">
           <table className="w-full text-sm">
             <thead className="bg-muted/80 sticky top-0 z-10">
-              <tr>
-                <th className="px-3 py-2.5 text-left font-semibold text-xs text-muted-foreground w-8">#</th>
-                {columns.map(c => (
-                  <th key={c.key} className="px-3 py-2.5 text-left font-semibold text-xs text-muted-foreground whitespace-nowrap">
-                    {c.label}
-                    {c.editable && <Pencil className="w-3 h-3 inline ml-1 opacity-40" />}
-                  </th>
-                ))}
-              </tr>
+               <tr>
+                 <th className="px-3 py-2.5 text-left font-semibold text-xs text-muted-foreground w-8">#</th>
+                 {columns.map(c => (
+                   <th key={c.key} className="px-3 py-2.5 text-left font-semibold text-xs text-muted-foreground whitespace-nowrap">
+                     {c.label}
+                     {c.editable && <Pencil className="w-3 h-3 inline ml-1 opacity-40" />}
+                   </th>
+                 ))}
+                 <th className="px-3 py-2.5 text-center font-semibold text-xs text-muted-foreground w-10"></th>
+               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {filtered.slice(0, 500).map((row, i) => (
@@ -379,6 +400,16 @@ export default function DataTableSection() {
                       </td>
                     );
                   })}
+                  <td className="px-2 py-1 text-center">
+                    <button
+                      onClick={() => handleDelete(i)}
+                      disabled={deleting === i}
+                      className="p-1 rounded hover:bg-destructive/10 text-destructive/60 hover:text-destructive transition-colors"
+                      title="Eliminar registro"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
