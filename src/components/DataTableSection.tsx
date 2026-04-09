@@ -113,7 +113,7 @@ export default function DataTableSection() {
     }
 
     return data;
-  }, [rawData, yearFilter, monthFilter, search, statusFilter, nameFilter, dateFrom, dateTo, personField]);
+  }, [rawData, yearFilter, monthFilter, search, statusFilter, nameFilter, mesFilter, dateFrom, dateTo, personField]);
 
   const columns = [
     { key: 'FECHA', label: 'Fecha', editable: false },
