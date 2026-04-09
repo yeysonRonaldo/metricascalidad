@@ -44,23 +44,40 @@ export async function fetchVisitasData(): Promise<{ supData: DataRow[]; ejecData
   return { supData, ejecData };
 }
 
-async function saveToCollection(collectionName: string, data: DataRow[], type: 'sup' | 'ejec'): Promise<void> {
-  // Fetch existing doc IDs to skip duplicates
-  const existing = await getDocs(collection(db, collectionName));
-  const existingIds = new Set<string>();
-  existing.forEach((d) => existingIds.add(d.id));
+async function clearCollection(collectionName: string): Promise<void> {
+  const snapshot = await getDocs(collection(db, collectionName));
+  if (snapshot.empty) return;
+  let batch = writeBatch(db);
+  let count = 0;
+  snapshot.forEach((d) => {
+    batch.delete(d.ref);
+    count++;
+    if (count % 500 === 0) {
+      batch.commit();
+      batch = writeBatch(db);
+    }
+  });
+  if (count % 500 !== 0) await batch.commit();
+  console.log(`Firestore [${collectionName}]: ${count} documentos eliminados`);
+}
 
-  // Only write rows whose deterministic ID doesn't already exist
+async function saveToCollection(collectionName: string, data: DataRow[], type: 'sup' | 'ejec', replace = false): Promise<void> {
+  if (replace) {
+    await clearCollection(collectionName);
+  }
+
+  const existingIds = new Set<string>();
+  if (!replace) {
+    const existing = await getDocs(collection(db, collectionName));
+    existing.forEach((d) => existingIds.add(d.id));
+  }
+
   let batch = writeBatch(db);
   let writeCount = 0;
-  let skipped = 0;
 
   for (const row of data) {
     const docId = generateRowId(row, type);
-    if (existingIds.has(docId)) {
-      skipped++;
-      continue;
-    }
+    if (existingIds.has(docId)) continue;
     const rowCopy = { ...row };
     delete rowCopy._ROLE;
     const ref = doc(collection(db, collectionName), docId);
@@ -72,7 +89,7 @@ async function saveToCollection(collectionName: string, data: DataRow[], type: '
     }
   }
   if (writeCount % 500 !== 0 && writeCount > 0) await batch.commit();
-  console.log(`Firestore [${collectionName}]: ${writeCount} nuevos, ${skipped} duplicados omitidos`);
+  console.log(`Firestore [${collectionName}]: ${writeCount} escritos${replace ? ' (reemplazo completo)' : ''}`);
 }
 
 export async function saveSupData(data: DataRow[]): Promise<void> {
