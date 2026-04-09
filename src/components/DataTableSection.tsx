@@ -329,7 +329,6 @@ export default function DataTableSection() {
                  ))}
                  <th className="px-3 py-2.5 text-center font-semibold text-xs text-muted-foreground w-10"></th>
                </tr>
-              </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {filtered.slice(0, 500).map((row, i) => (
