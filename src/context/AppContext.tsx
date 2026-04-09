@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { DataRow, TabName, TimeUnit } from '@/types/metrics';
 import { convertDatesAndFill, isRealized } from '@/lib/dataProcessing';
-import { fetchVisitasData, saveSupData, saveEjecData, updateRowInFirestore } from '@/lib/firestoreService';
+import { fetchVisitasData, saveSupData, saveEjecData, updateRowInFirestore, deleteRowFromFirestore } from '@/lib/firestoreService';
 import { fetchFromGoogleSheets } from '@/lib/googleSheetsService';
 import { toast } from 'sonner';
 import Papa from 'papaparse';
