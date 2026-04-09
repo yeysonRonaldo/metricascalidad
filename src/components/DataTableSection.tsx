@@ -244,6 +244,22 @@ export default function DataTableSection() {
           </datalist>
         </div>
 
+        {/* Month filter - searchable */}
+        <div className="relative">
+          <Input
+            placeholder="Filtrar mes..."
+            value={mesFilter === 'all' ? '' : mesFilter}
+            onChange={e => setMesFilter(e.target.value || 'all')}
+            list={`mes-list-${dataType}`}
+            className="h-8 text-xs w-[140px] bg-background"
+          />
+          <datalist id={`mes-list-${dataType}`}>
+            {uniqueMonths.map(m => (
+              <option key={m} value={m} />
+            ))}
+          </datalist>
+        </div>
+
         {/* Date from */}
         <Popover>
           <PopoverTrigger asChild>
