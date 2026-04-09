@@ -201,6 +201,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await updateRowInFirestore(type, oldRow, field, value);
   }, [state.supData, state.ejecData]);
 
+  const deleteRow = useCallback(async (type: 'sup' | 'ejec', index: number) => {
+    const dataKey = type === 'sup' ? 'supData' : 'ejecData';
+    const row = state[dataKey][index];
+    if (!row) throw new Error('Row not found');
+
+    setState(s => {
+      const newData = [...s[dataKey]];
+      newData.splice(index, 1);
+      return { ...s, [dataKey]: newData };
+    });
+
+    await deleteRowFromFirestore(type, row);
+  }, [state.supData, state.ejecData]);
+
   // Auto-sync from Google Sheets on mount
   useEffect(() => {
     syncFromGoogleSheets();
@@ -209,7 +223,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const hasData = state.supData.length > 0 || state.ejecData.length > 0;
 
   return (
-    <AppContext.Provider value={{ ...state, setActiveTab, setYearFilter, setMonthFilter, handleFileUpload, loadFromFirestore, syncFromGoogleSheets, updateRow, hasData }}>
+    <AppContext.Provider value={{ ...state, setActiveTab, setYearFilter, setMonthFilter, handleFileUpload, loadFromFirestore, syncFromGoogleSheets, updateRow, deleteRow, hasData }}>
       {children}
     </AppContext.Provider>
   );
