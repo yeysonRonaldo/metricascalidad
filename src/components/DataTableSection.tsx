@@ -180,13 +180,13 @@ export default function DataTableSection() {
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex bg-muted rounded-lg p-0.5">
           <button
-            onClick={() => { setDataType('sup'); setSearch(''); setEditingCell(null); setStatusFilter('all'); setNameFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}
+            onClick={() => { setDataType('sup'); setSearch(''); setEditingCell(null); setStatusFilter('all'); setNameFilter('all'); setMesFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}
             className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${dataType === 'sup' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
           >
             Supervisores ({supData.length})
           </button>
           <button
-            onClick={() => { setDataType('ejec'); setSearch(''); setEditingCell(null); setStatusFilter('all'); setNameFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}
+            onClick={() => { setDataType('ejec'); setSearch(''); setEditingCell(null); setStatusFilter('all'); setNameFilter('all'); setMesFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}
             className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${dataType === 'ejec' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
           >
             Ejecutivos ({ejecData.length})
