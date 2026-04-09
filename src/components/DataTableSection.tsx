@@ -54,14 +54,16 @@ export default function DataTableSection() {
   const filtered = useMemo(() => {
     let data = filterByYearMonth(rawData, yearFilter, monthFilter);
 
-    // Status filter
+    // Status filter (partial match for typed input)
     if (statusFilter !== 'all') {
-      data = data.filter(r => (r.STATUS || '').toString().toUpperCase() === statusFilter.toUpperCase());
+      const q = statusFilter.toUpperCase();
+      data = data.filter(r => (r.STATUS || '').toString().toUpperCase().includes(q));
     }
 
-    // Name filter
+    // Name filter (partial match for typed input)
     if (nameFilter !== 'all') {
-      data = data.filter(r => (r[personField] || '').toString().trim() === nameFilter);
+      const q = nameFilter.toUpperCase();
+      data = data.filter(r => (r[personField] || '').toString().toUpperCase().includes(q));
     }
 
     // Date range filter
@@ -98,6 +100,7 @@ export default function DataTableSection() {
 
   const columns = [
     { key: 'FECHA', label: 'Fecha', editable: false },
+    { key: 'MES', label: 'Mes', editable: true },
     { key: personField, label: dataType === 'sup' ? 'Supervisor' : 'Ejecutivo', editable: true },
     { key: 'CLIENTE', label: 'Cliente', editable: true },
     { key: 'SUCURSAL', label: 'Sucursal', editable: true },
@@ -192,31 +195,37 @@ export default function DataTableSection() {
       <div className="flex flex-wrap items-center gap-2 bg-muted/40 rounded-lg p-2.5">
         <Filter className="w-4 h-4 text-muted-foreground" />
 
-        {/* Status filter */}
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="h-8 text-xs w-[160px] bg-background">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los status</SelectItem>
+        {/* Status filter - searchable */}
+        <div className="relative">
+          <Input
+            placeholder="Filtrar status..."
+            value={statusFilter === 'all' ? '' : statusFilter}
+            onChange={e => setStatusFilter(e.target.value || 'all')}
+            list={`status-list-${dataType}`}
+            className="h-8 text-xs w-[160px] bg-background"
+          />
+          <datalist id={`status-list-${dataType}`}>
             {uniqueStatuses.map(s => (
-              <SelectItem key={s} value={s}>{s}</SelectItem>
+              <option key={s} value={s} />
             ))}
-          </SelectContent>
-        </Select>
+          </datalist>
+        </div>
 
-        {/* Name filter */}
-        <Select value={nameFilter} onValueChange={setNameFilter}>
-          <SelectTrigger className="h-8 text-xs w-[180px] bg-background">
-            <SelectValue placeholder="Nombre" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los nombres</SelectItem>
+        {/* Name filter - searchable */}
+        <div className="relative">
+          <Input
+            placeholder="Filtrar nombre..."
+            value={nameFilter === 'all' ? '' : nameFilter}
+            onChange={e => setNameFilter(e.target.value || 'all')}
+            list={`name-list-${dataType}`}
+            className="h-8 text-xs w-[180px] bg-background"
+          />
+          <datalist id={`name-list-${dataType}`}>
             {uniqueNames.map(n => (
-              <SelectItem key={n} value={n}>{n}</SelectItem>
+              <option key={n} value={n} />
             ))}
-          </SelectContent>
-        </Select>
+          </datalist>
+        </div>
 
         {/* Date from */}
         <Popover>
