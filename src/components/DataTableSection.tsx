@@ -54,14 +54,16 @@ export default function DataTableSection() {
   const filtered = useMemo(() => {
     let data = filterByYearMonth(rawData, yearFilter, monthFilter);
 
-    // Status filter
+    // Status filter (partial match for typed input)
     if (statusFilter !== 'all') {
-      data = data.filter(r => (r.STATUS || '').toString().toUpperCase() === statusFilter.toUpperCase());
+      const q = statusFilter.toUpperCase();
+      data = data.filter(r => (r.STATUS || '').toString().toUpperCase().includes(q));
     }
 
-    // Name filter
+    // Name filter (partial match for typed input)
     if (nameFilter !== 'all') {
-      data = data.filter(r => (r[personField] || '').toString().trim() === nameFilter);
+      const q = nameFilter.toUpperCase();
+      data = data.filter(r => (r[personField] || '').toString().toUpperCase().includes(q));
     }
 
     // Date range filter
