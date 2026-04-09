@@ -159,6 +159,25 @@ export default function DataTableSection() {
     }
   }, [editingCell, editValue, filtered, rawData, dataType, updateRow]);
 
+  const handleDelete = useCallback(async (rowIdx: number) => {
+    const row = filtered[rowIdx];
+    if (!row) return;
+    const originalIdx = rawData.indexOf(row);
+    if (originalIdx === -1) return;
+    if (!window.confirm('¿Estás seguro de eliminar este registro?')) return;
+
+    setDeleting(rowIdx);
+    try {
+      await deleteRow(dataType, originalIdx);
+      toast.success('Registro eliminado 🗑️');
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al eliminar');
+    } finally {
+      setDeleting(null);
+    }
+  }, [filtered, rawData, dataType, deleteRow]);
+
   const getStatusColor = (status: string) => {
     const s = (status || '').toUpperCase();
     if (s.includes('REALIZADO') && !s.includes('NO ')) return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
