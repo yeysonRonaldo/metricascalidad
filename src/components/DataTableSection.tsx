@@ -400,6 +400,16 @@ export default function DataTableSection() {
                       </td>
                     );
                   })}
+                  <td className="px-2 py-1 text-center">
+                    <button
+                      onClick={() => handleDelete(i)}
+                      disabled={deleting === i}
+                      className="p-1 rounded hover:bg-destructive/10 text-destructive/60 hover:text-destructive transition-colors"
+                      title="Eliminar registro"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
