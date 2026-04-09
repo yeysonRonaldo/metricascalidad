@@ -4,7 +4,7 @@ import { filterByYearMonth } from '@/lib/dataProcessing';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Search, Database, X, Check, Pencil, CalendarIcon, Filter } from 'lucide-react';
+import { Search, Database, X, Check, Pencil, CalendarIcon, Filter, Trash2 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ type DataType = 'sup' | 'ejec';
 const STATUS_OPTIONS = ['REALIZADO', 'PROGRAMADO', 'CANCELADO', 'REPROGRAMADO', 'NO REALIZADO', 'PENDIENTE'];
 
 export default function DataTableSection() {
-  const { supData, ejecData, yearFilter, monthFilter, updateRow } = useAppContext();
+  const { supData, ejecData, yearFilter, monthFilter, updateRow, deleteRow } = useAppContext();
   const [dataType, setDataType] = useState<DataType>('sup');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -28,6 +28,7 @@ export default function DataTableSection() {
   const [editingCell, setEditingCell] = useState<{ rowIdx: number; field: string } | null>(null);
   const [editValue, setEditValue] = useState('');
   const [saving, setSaving] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState<number | null>(null);
 
   const rawData = dataType === 'sup' ? supData : ejecData;
   const personField = dataType === 'sup' ? 'SUPERVISOR' : 'EJECUTIVO';
