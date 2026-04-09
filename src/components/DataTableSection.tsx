@@ -4,7 +4,13 @@ import { filterByYearMonth } from '@/lib/dataProcessing';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Search, Save, Database, X, Check, Pencil } from 'lucide-react';
+import { Search, Database, X, Check, Pencil, CalendarIcon, Filter } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Button } from '@/components/ui/button';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 type DataType = 'sup' | 'ejec';
 
@@ -14,25 +20,81 @@ export default function DataTableSection() {
   const { supData, ejecData, yearFilter, monthFilter, updateRow } = useAppContext();
   const [dataType, setDataType] = useState<DataType>('sup');
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [nameFilter, setNameFilter] = useState('all');
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
   const [editingCell, setEditingCell] = useState<{ rowIdx: number; field: string } | null>(null);
   const [editValue, setEditValue] = useState('');
   const [saving, setSaving] = useState<number | null>(null);
 
   const rawData = dataType === 'sup' ? supData : ejecData;
-  const filtered = useMemo(() => {
-    const byDate = filterByYearMonth(rawData, yearFilter, monthFilter);
-    if (!search.trim()) return byDate;
-    const q = search.toUpperCase();
-    return byDate.filter(r =>
-      (r.CLIENTE || '').toString().toUpperCase().includes(q) ||
-      (r.SUPERVISOR || '').toString().toUpperCase().includes(q) ||
-      (r.EJECUTIVO || '').toString().toUpperCase().includes(q) ||
-      (r.SUCURSAL || '').toString().toUpperCase().includes(q) ||
-      (r.STATUS || '').toString().toUpperCase().includes(q)
-    );
-  }, [rawData, yearFilter, monthFilter, search]);
-
   const personField = dataType === 'sup' ? 'SUPERVISOR' : 'EJECUTIVO';
+
+  // Unique names for dropdown
+  const uniqueNames = useMemo(() => {
+    const names = new Set<string>();
+    rawData.forEach(r => {
+      const n = (r[personField] || '').toString().trim();
+      if (n) names.add(n);
+    });
+    return Array.from(names).sort();
+  }, [rawData, personField]);
+
+  // Unique statuses in data
+  const uniqueStatuses = useMemo(() => {
+    const statuses = new Set<string>();
+    rawData.forEach(r => {
+      const s = (r.STATUS || '').toString().trim();
+      if (s) statuses.add(s);
+    });
+    return Array.from(statuses).sort();
+  }, [rawData]);
+
+  const filtered = useMemo(() => {
+    let data = filterByYearMonth(rawData, yearFilter, monthFilter);
+
+    // Status filter
+    if (statusFilter !== 'all') {
+      data = data.filter(r => (r.STATUS || '').toString().toUpperCase() === statusFilter.toUpperCase());
+    }
+
+    // Name filter
+    if (nameFilter !== 'all') {
+      data = data.filter(r => (r[personField] || '').toString().trim() === nameFilter);
+    }
+
+    // Date range filter
+    if (dateFrom || dateTo) {
+      data = data.filter(r => {
+        const fecha = (r.FECHA || '').toString();
+        if (!fecha) return false;
+        const d = new Date(fecha);
+        if (isNaN(d.getTime())) return false;
+        if (dateFrom && d < dateFrom) return false;
+        if (dateTo) {
+          const end = new Date(dateTo);
+          end.setHours(23, 59, 59, 999);
+          if (d > end) return false;
+        }
+        return true;
+      });
+    }
+
+    // Text search
+    if (search.trim()) {
+      const q = search.toUpperCase();
+      data = data.filter(r =>
+        (r.CLIENTE || '').toString().toUpperCase().includes(q) ||
+        (r.SUPERVISOR || '').toString().toUpperCase().includes(q) ||
+        (r.EJECUTIVO || '').toString().toUpperCase().includes(q) ||
+        (r.SUCURSAL || '').toString().toUpperCase().includes(q) ||
+        (r.STATUS || '').toString().toUpperCase().includes(q)
+      );
+    }
+
+    return data;
+  }, [rawData, yearFilter, monthFilter, search, statusFilter, nameFilter, dateFrom, dateTo, personField]);
 
   const columns = [
     { key: 'FECHA', label: 'Fecha', editable: false },
@@ -98,32 +160,96 @@ export default function DataTableSection() {
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex bg-muted rounded-lg p-0.5">
           <button
-            onClick={() => { setDataType('sup'); setSearch(''); setEditingCell(null); }}
+            onClick={() => { setDataType('sup'); setSearch(''); setEditingCell(null); setStatusFilter('all'); setNameFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}
             className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${dataType === 'sup' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
           >
             Supervisores ({supData.length})
           </button>
           <button
-            onClick={() => { setDataType('ejec'); setSearch(''); setEditingCell(null); }}
+            onClick={() => { setDataType('ejec'); setSearch(''); setEditingCell(null); setStatusFilter('all'); setNameFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}
             className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${dataType === 'ejec' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
           >
             Ejecutivos ({ejecData.length})
           </button>
         </div>
 
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+        <div className="relative flex-1 min-w-[180px] max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por cliente, persona, sucursal..."
+            placeholder="Buscar..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-9 h-9"
           />
         </div>
 
         <span className="text-sm text-muted-foreground">
           {filtered.length} registros
         </span>
+      </div>
+
+      {/* Filter row */}
+      <div className="flex flex-wrap items-center gap-2 bg-muted/40 rounded-lg p-2.5">
+        <Filter className="w-4 h-4 text-muted-foreground" />
+
+        {/* Status filter */}
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="h-8 text-xs w-[160px] bg-background">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los status</SelectItem>
+            {uniqueStatuses.map(s => (
+              <SelectItem key={s} value={s}>{s}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Name filter */}
+        <Select value={nameFilter} onValueChange={setNameFilter}>
+          <SelectTrigger className="h-8 text-xs w-[180px] bg-background">
+            <SelectValue placeholder="Nombre" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los nombres</SelectItem>
+            {uniqueNames.map(n => (
+              <SelectItem key={n} value={n}>{n}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Date from */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className={cn("h-8 text-xs w-[140px] justify-start", !dateFrom && "text-muted-foreground")}>
+              <CalendarIcon className="w-3 h-3 mr-1" />
+              {dateFrom ? format(dateFrom, 'dd/MM/yyyy') : 'Desde'}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} locale={es} initialFocus className={cn("p-3 pointer-events-auto")} />
+          </PopoverContent>
+        </Popover>
+
+        {/* Date to */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className={cn("h-8 text-xs w-[140px] justify-start", !dateTo && "text-muted-foreground")}>
+              <CalendarIcon className="w-3 h-3 mr-1" />
+              {dateTo ? format(dateTo, 'dd/MM/yyyy') : 'Hasta'}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar mode="single" selected={dateTo} onSelect={setDateTo} locale={es} initialFocus className={cn("p-3 pointer-events-auto")} />
+          </PopoverContent>
+        </Popover>
+
+        {/* Clear filters */}
+        {(statusFilter !== 'all' || nameFilter !== 'all' || dateFrom || dateTo) && (
+          <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setStatusFilter('all'); setNameFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}>
+            <X className="w-3 h-3 mr-1" /> Limpiar
+          </Button>
+        )}
       </div>
 
       {/* Table */}
