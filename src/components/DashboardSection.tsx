@@ -72,7 +72,7 @@ export default function DashboardSection({ type }: DashboardSectionProps) {
       </div>
 
       <KPICards metaCount={metaCount} realizedCount={realizedCount} missingCount={missingCount} realizedPct={realizedPct} topPerson={topPerson} topLabel={type === 'SUPERVISOR' ? 'Supervisor Top' : 'Ejecutivo Top'} />
-      <GoalCards stats={stats} />
+      <GoalCards stats={stats} data={filteredData} field={field} />
       <TimeLineChart data={timeData} title="📈 Evolución de Visitas" unit={timeUnit} onUnitChange={setTimeUnit} />
       <SupervisorStackChart stats={stats} />
 
