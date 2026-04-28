@@ -180,21 +180,16 @@ function parseDateValue(fechaVal: unknown): Date | null {
 }
 
 function getDateParts(row: DataRow): { year: string; month: string } {
+  // El campo MES en la hoja representa CUÁNDO se realizó la gestión (puede diferir
+  // del mes de la FECHA, que es la fecha original programada). Por eso MES tiene
+  // prioridad sobre FECHA. El AÑO se deriva de FECHA si no está explícito.
   const explicitYear = (row.AÑO || '').toString().trim();
   const explicitMonth = normalizeMonth(row.MES);
-
-  if (explicitYear && explicitMonth) {
-    return { year: explicitYear, month: explicitMonth };
-  }
-
   const parsedDate = parseDateValue(row.FECHA);
-  if (!parsedDate) {
-    return { year: explicitYear, month: explicitMonth };
-  }
 
   return {
-    year: explicitYear || parsedDate.getFullYear().toString(),
-    month: explicitMonth || MONTH_NAMES[parsedDate.getMonth()],
+    year: explicitYear || (parsedDate ? parsedDate.getFullYear().toString() : ''),
+    month: explicitMonth || (parsedDate ? MONTH_NAMES[parsedDate.getMonth()] : ''),
   };
 }
 
