@@ -458,7 +458,7 @@ export default function DataTableSection() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                {STATUS_OPTIONS.map(s => (
+                                {statusOptionsForType.map(s => (
                                   <SelectItem key={s} value={s}>{s}</SelectItem>
                                 ))}
                               </SelectContent>
