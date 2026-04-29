@@ -325,6 +325,20 @@ export default function DataTableSection() {
         </span>
       </div>
 
+      {isEjec && (
+        <div className="flex items-start gap-2 bg-primary/5 border border-primary/20 rounded-lg p-2.5 text-xs text-foreground/80">
+          <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium text-foreground">Ejecutivos: edición restringida</p>
+            <p className="text-muted-foreground">
+              Solo se puede cambiar el <strong>STATUS</strong> de un registro (ej. <em>Programado → Enviado</em>).
+              Para quitar un registro (ej. cliente dado de baja), usa el ícono de papelera y elige el rango de meses.
+              Esta data no se sobrescribe desde Google Sheets.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Filter row */}
       <div className="flex flex-wrap items-center gap-2 bg-muted/40 rounded-lg p-2.5">
         <Filter className="w-4 h-4 text-muted-foreground" />
