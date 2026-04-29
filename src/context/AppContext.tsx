@@ -26,6 +26,7 @@ interface AppContextType extends AppState {
   syncFromGoogleSheets: () => Promise<void>;
   updateRow: (type: 'sup' | 'ejec', index: number, field: string, value: string) => Promise<void>;
   deleteRow: (type: 'sup' | 'ejec', index: number) => Promise<void>;
+  deleteRowsBulk: (type: 'sup' | 'ejec', indices: number[]) => Promise<void>;
   hasData: boolean;
 }
 
