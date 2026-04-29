@@ -1,20 +1,27 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useAppContext } from '@/context/AppContext';
-import { filterByYearMonth } from '@/lib/dataProcessing';
+import { filterByYearMonth, MONTH_NAMES, normalizeText, cleanString, normalizeMonth } from '@/lib/dataProcessing';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Search, Database, X, Check, Pencil, CalendarIcon, Filter, Trash2 } from 'lucide-react';
+import { Search, Database, X, Check, Pencil, CalendarIcon, Filter, Trash2, Info } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import type { DataRow } from '@/types/metrics';
 
 type DataType = 'sup' | 'ejec';
 
 const STATUS_OPTIONS = ['REALIZADO', 'PROGRAMADO', 'CANCELADO', 'REPROGRAMADO', 'NO REALIZADO', 'PENDIENTE'];
+const EJEC_STATUS_OPTIONS = ['PROGRAMADO', 'ENVIADO'];
+
+type DeleteScope = 'single' | 'forward' | 'range' | 'year';
 
 export default function DataTableSection() {
   const { supData, ejecData, yearFilter, monthFilter, updateRow, deleteRow } = useAppContext();
