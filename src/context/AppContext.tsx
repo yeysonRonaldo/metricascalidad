@@ -221,6 +221,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await deleteRowFromFirestore(type, row);
   }, [state.supData, state.ejecData]);
 
+  const deleteRowsBulk = useCallback(async (type: 'sup' | 'ejec', indices: number[]) => {
+    if (indices.length === 0) return;
+    const dataKey = type === 'sup' ? 'supData' : 'ejecData';
+    const idxSet = new Set(indices);
+    const rowsToDelete = indices
+      .map(i => state[dataKey][i])
+      .filter((r): r is DataRow => Boolean(r));
+    if (rowsToDelete.length === 0) return;
+
+    setState(s => {
+      const newData = s[dataKey].filter((_, i) => !idxSet.has(i));
+      return { ...s, [dataKey]: newData };
+    });
+
+    await deleteRowsBatchFromFirestore(type, rowsToDelete);
+  }, [state.supData, state.ejecData]);
+
   // Auto-sync from Google Sheets on mount
   useEffect(() => {
     syncFromGoogleSheets();
@@ -229,7 +246,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const hasData = state.supData.length > 0 || state.ejecData.length > 0;
 
   return (
-    <AppContext.Provider value={{ ...state, setActiveTab, setYearFilter, setMonthFilter, handleFileUpload, loadFromFirestore, syncFromGoogleSheets, updateRow, deleteRow, hasData }}>
+    <AppContext.Provider value={{ ...state, setActiveTab, setYearFilter, setMonthFilter, handleFileUpload, loadFromFirestore, syncFromGoogleSheets, updateRow, deleteRow, deleteRowsBulk, hasData }}>
       {children}
     </AppContext.Provider>
   );
