@@ -203,12 +203,6 @@ export function convertDatesAndFill(data: Record<string, unknown>[]): DataRow[] 
 
     if (finalRow.AÑO) finalRow.AÑO = String(finalRow.AÑO).trim();
     if (finalRow.MES) finalRow.MES = normalizeMonth(finalRow.MES);
-    if (!finalRow.MES && finalRow.FECHA) {
-      const maybeNumericMonth = Number(finalRow.FECHA);
-      if (Number.isFinite(maybeNumericMonth) && maybeNumericMonth >= 1 && maybeNumericMonth <= 12) {
-        finalRow.MES = MONTH_NAMES[maybeNumericMonth - 1];
-      }
-    }
 
     const dateObj = parseDateValue(finalRow.FECHA);
     if (dateObj) {
@@ -217,7 +211,9 @@ export function convertDatesAndFill(data: Record<string, unknown>[]): DataRow[] 
       const day = String(dateObj.getDate()).padStart(2, '0');
       finalRow.FECHA = `${year}-${month}-${day}`;
       if (!finalRow.AÑO) finalRow.AÑO = year.toString();
-      if (!finalRow.MES) finalRow.MES = MONTH_NAMES[dateObj.getMonth()];
+      // NOTA: NO autocompletamos MES desde la FECHA. Respetamos el Excel:
+      // si la fila no trae MES (ej. PROGRAMADOS), se queda vacío en la tabla.
+      // Las gráficas y filtros derivan el mes internamente vía getDateParts().
     }
 
     return finalRow;
