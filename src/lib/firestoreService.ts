@@ -136,3 +136,21 @@ export async function deleteRowFromFirestore(type: 'sup' | 'ejec', row: DataRow)
   const docId = generateRowId(row, type);
   await deleteDoc(doc(db, collectionName, docId));
 }
+
+export async function deleteRowsBatchFromFirestore(type: 'sup' | 'ejec', rows: DataRow[]): Promise<void> {
+  if (rows.length === 0) return;
+  const collectionName = type === 'sup' ? COLLECTION_SUP : COLLECTION_EJEC;
+  let batch = writeBatch(db);
+  let count = 0;
+  for (const row of rows) {
+    const docId = generateRowId(row, type);
+    batch.delete(doc(db, collectionName, docId));
+    count++;
+    if (count % 500 === 0) {
+      await batch.commit();
+      batch = writeBatch(db);
+    }
+  }
+  if (count % 500 !== 0) await batch.commit();
+  console.log(`Firestore [${collectionName}]: ${count} documentos eliminados (batch)`);
+}

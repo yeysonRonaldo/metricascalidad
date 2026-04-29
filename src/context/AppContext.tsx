@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { DataRow, TabName, TimeUnit } from '@/types/metrics';
 import { convertDatesAndFill, isRealized } from '@/lib/dataProcessing';
-import { fetchVisitasData, saveSupData, saveEjecData, updateRowInFirestore, deleteRowFromFirestore } from '@/lib/firestoreService';
+import { fetchVisitasData, saveSupData, saveEjecData, updateRowInFirestore, deleteRowFromFirestore, deleteRowsBatchFromFirestore } from '@/lib/firestoreService';
 import { fetchFromGoogleSheets } from '@/lib/googleSheetsService';
 import { toast } from 'sonner';
 import Papa from 'papaparse';
@@ -26,6 +26,7 @@ interface AppContextType extends AppState {
   syncFromGoogleSheets: () => Promise<void>;
   updateRow: (type: 'sup' | 'ejec', index: number, field: string, value: string) => Promise<void>;
   deleteRow: (type: 'sup' | 'ejec', index: number) => Promise<void>;
+  deleteRowsBulk: (type: 'sup' | 'ejec', indices: number[]) => Promise<void>;
   hasData: boolean;
 }
 
@@ -147,18 +148,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const syncFromGoogleSheets = useCallback(async () => {
     setState(s => ({ ...s, isLoading: true }));
     try {
-      const { supData, ejecData } = await fetchFromGoogleSheets();
+      // Traer SOLO Supervisores desde Google Sheets.
+      // Ejecutivos: la fuente de verdad es Firestore (no se sobrescribe).
+      const [{ supData }, firestoreData] = await Promise.all([
+        fetchFromGoogleSheets(),
+        fetchVisitasData(),
+      ]);
+      const ejecData = firestoreData.ejecData;
       const supRealized = supData.filter(r => isRealized(r.STATUS)).length;
       const ejecRealized = ejecData.filter(r => isRealized(r.STATUS)).length;
       processData(supData, ejecData);
-      toast.success(`Sincronizado: ${supData.length} supervisores (${supRealized} realizados), ${ejecData.length} ejecutivos (${ejecRealized} realizados)`);
-      // Save to Firestore in background
-      const promises: Promise<void>[] = [];
-      if (supData.length > 0) promises.push(saveSupData(supData, true));
-      if (ejecData.length > 0) promises.push(saveEjecData(ejecData, true));
-      Promise.all(promises)
-        .then(() => console.log('Google Sheets data saved to Firestore ✅'))
-        .catch(err => console.error('Error saving to Firestore:', err));
+      toast.success(`Sincronizado: ${supData.length} supervisores (${supRealized} realizados), ${ejecData.length} ejecutivos (${ejecRealized} realizados, desde Firestore)`);
+      // Guardar SOLO Supervisores en Firestore (Ejecutivos ya viene de allí).
+      if (supData.length > 0) {
+        saveSupData(supData, true)
+          .then(() => console.log('Supervisores guardados en Firestore ✅'))
+          .catch(err => console.error('Error guardando supervisores:', err));
+      }
     } catch (err) {
       console.error('Error syncing from Google Sheets:', err);
       toast.error('Error al sincronizar. Cargando datos guardados...');
@@ -215,6 +221,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await deleteRowFromFirestore(type, row);
   }, [state.supData, state.ejecData]);
 
+  const deleteRowsBulk = useCallback(async (type: 'sup' | 'ejec', indices: number[]) => {
+    if (indices.length === 0) return;
+    const dataKey = type === 'sup' ? 'supData' : 'ejecData';
+    const idxSet = new Set(indices);
+    const rowsToDelete = indices
+      .map(i => state[dataKey][i])
+      .filter((r): r is DataRow => Boolean(r));
+    if (rowsToDelete.length === 0) return;
+
+    setState(s => {
+      const newData = s[dataKey].filter((_, i) => !idxSet.has(i));
+      return { ...s, [dataKey]: newData };
+    });
+
+    await deleteRowsBatchFromFirestore(type, rowsToDelete);
+  }, [state.supData, state.ejecData]);
+
   // Auto-sync from Google Sheets on mount
   useEffect(() => {
     syncFromGoogleSheets();
@@ -223,7 +246,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const hasData = state.supData.length > 0 || state.ejecData.length > 0;
 
   return (
-    <AppContext.Provider value={{ ...state, setActiveTab, setYearFilter, setMonthFilter, handleFileUpload, loadFromFirestore, syncFromGoogleSheets, updateRow, deleteRow, hasData }}>
+    <AppContext.Provider value={{ ...state, setActiveTab, setYearFilter, setMonthFilter, handleFileUpload, loadFromFirestore, syncFromGoogleSheets, updateRow, deleteRow, deleteRowsBulk, hasData }}>
       {children}
     </AppContext.Provider>
   );

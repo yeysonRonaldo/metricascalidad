@@ -1,23 +1,30 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useAppContext } from '@/context/AppContext';
-import { filterByYearMonth } from '@/lib/dataProcessing';
+import { filterByYearMonth, MONTH_NAMES, normalizeText, cleanString, normalizeMonth } from '@/lib/dataProcessing';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Search, Database, X, Check, Pencil, CalendarIcon, Filter, Trash2 } from 'lucide-react';
+import { Search, Database, X, Check, Pencil, CalendarIcon, Filter, Trash2, Info } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import type { DataRow } from '@/types/metrics';
 
 type DataType = 'sup' | 'ejec';
 
 const STATUS_OPTIONS = ['REALIZADO', 'PROGRAMADO', 'CANCELADO', 'REPROGRAMADO', 'NO REALIZADO', 'PENDIENTE'];
+const EJEC_STATUS_OPTIONS = ['PROGRAMADO', 'ENVIADO'];
+
+type DeleteScope = 'single' | 'forward' | 'range' | 'year';
 
 export default function DataTableSection() {
-  const { supData, ejecData, yearFilter, monthFilter, updateRow, deleteRow } = useAppContext();
+  const { supData, ejecData, yearFilter, monthFilter, updateRow, deleteRow, deleteRowsBulk } = useAppContext();
   const [dataType, setDataType] = useState<DataType>('sup');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -29,9 +36,15 @@ export default function DataTableSection() {
   const [editValue, setEditValue] = useState('');
   const [saving, setSaving] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ rowIdx: number; row: DataRow } | null>(null);
+  const [deleteScope, setDeleteScope] = useState<DeleteScope>('single');
+  const [rangeFrom, setRangeFrom] = useState<string>(MONTH_NAMES[0]);
+  const [rangeTo, setRangeTo] = useState<string>(MONTH_NAMES[MONTH_NAMES.length - 1]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const rawData = dataType === 'sup' ? supData : ejecData;
   const personField = dataType === 'sup' ? 'SUPERVISOR' : 'EJECUTIVO';
+  const isEjec = dataType === 'ejec';
 
   // Unique names for dropdown
   const uniqueNames = useMemo(() => {
@@ -116,16 +129,29 @@ export default function DataTableSection() {
     return data;
   }, [rawData, yearFilter, monthFilter, search, statusFilter, nameFilter, mesFilter, dateFrom, dateTo, personField]);
 
-  const columns = [
-    { key: 'FECHA', label: 'Fecha', editable: false },
-    { key: 'MES', label: 'Mes', editable: true },
-    { key: personField, label: dataType === 'sup' ? 'Supervisor' : 'Ejecutivo', editable: true },
-    { key: 'CLIENTE', label: 'Cliente', editable: true },
-    { key: 'SUCURSAL', label: 'Sucursal', editable: true },
-    { key: 'STATUS', label: 'Status', editable: true, type: 'select' },
-    { key: 'TIPO DE VISITA', label: 'Tipo de Visita', editable: true },
-    { key: 'OBSERVACIONES', label: 'Observaciones', editable: true },
-  ];
+  const columns = isEjec
+    ? [
+        { key: 'FECHA', label: 'Fecha', editable: false },
+        { key: 'MES', label: 'Mes', editable: false },
+        { key: personField, label: 'Ejecutivo', editable: false },
+        { key: 'CLIENTE', label: 'Cliente', editable: false },
+        { key: 'SUCURSAL', label: 'Sucursal', editable: false },
+        { key: 'STATUS', label: 'Status', editable: true, type: 'select' as const },
+        { key: 'TIPO DE VISITA', label: 'Tipo de Visita', editable: false },
+        { key: 'OBSERVACIONES', label: 'Observaciones', editable: false },
+      ]
+    : [
+        { key: 'FECHA', label: 'Fecha', editable: false },
+        { key: 'MES', label: 'Mes', editable: true },
+        { key: personField, label: 'Supervisor', editable: true },
+        { key: 'CLIENTE', label: 'Cliente', editable: true },
+        { key: 'SUCURSAL', label: 'Sucursal', editable: true },
+        { key: 'STATUS', label: 'Status', editable: true, type: 'select' as const },
+        { key: 'TIPO DE VISITA', label: 'Tipo de Visita', editable: true },
+        { key: 'OBSERVACIONES', label: 'Observaciones', editable: true },
+      ];
+
+  const statusOptionsForType = isEjec ? EJEC_STATUS_OPTIONS : STATUS_OPTIONS;
 
   const startEdit = (rowIdx: number, field: string, currentValue: string) => {
     setEditingCell({ rowIdx, field });
@@ -141,7 +167,7 @@ export default function DataTableSection() {
     if (!editingCell) return;
     const row = filtered[editingCell.rowIdx];
     if (!row) return;
-    
+
     const originalIdx = rawData.indexOf(row);
     if (originalIdx === -1) return;
 
@@ -162,6 +188,16 @@ export default function DataTableSection() {
   const handleDelete = useCallback(async (rowIdx: number) => {
     const row = filtered[rowIdx];
     if (!row) return;
+
+    if (isEjec) {
+      const rowMonth = normalizeMonth(row.MES) || MONTH_NAMES[0];
+      setDeleteScope('single');
+      setRangeFrom(rowMonth);
+      setRangeTo(MONTH_NAMES[MONTH_NAMES.length - 1]);
+      setDeleteDialog({ rowIdx, row });
+      return;
+    }
+
     const originalIdx = rawData.indexOf(row);
     if (originalIdx === -1) return;
     if (!window.confirm('¿Estás seguro de eliminar este registro?')) return;
@@ -176,7 +212,68 @@ export default function DataTableSection() {
     } finally {
       setDeleting(null);
     }
-  }, [filtered, rawData, dataType, deleteRow]);
+  }, [filtered, rawData, dataType, deleteRow, isEjec]);
+
+  const confirmBulkDelete = useCallback(async () => {
+    if (!deleteDialog) return;
+    const { row } = deleteDialog;
+    const targetEjec = normalizeText(row[personField]);
+    const targetCliente = cleanString(row.CLIENTE as string);
+    const targetSucursal = cleanString(row.SUCURSAL as string);
+    const rowMonth = normalizeMonth(row.MES) || MONTH_NAMES[0];
+
+    let targetMonths: Set<string>;
+    if (deleteScope === 'single') {
+      targetMonths = new Set([rowMonth]);
+    } else if (deleteScope === 'forward') {
+      const startIdx = MONTH_NAMES.indexOf(rowMonth);
+      targetMonths = new Set(MONTH_NAMES.slice(startIdx >= 0 ? startIdx : 0));
+    } else if (deleteScope === 'year') {
+      targetMonths = new Set(MONTH_NAMES);
+    } else {
+      const fromIdx = MONTH_NAMES.indexOf(rangeFrom);
+      const toIdx = MONTH_NAMES.indexOf(rangeTo);
+      const [a, b] = fromIdx <= toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+      targetMonths = new Set(MONTH_NAMES.slice(a, b + 1));
+    }
+
+    const targetYear = yearFilter;
+    const indices: number[] = [];
+    rawData.forEach((r, i) => {
+      const rEjec = normalizeText(r[personField]);
+      const rCliente = cleanString(r.CLIENTE as string);
+      const rSucursal = cleanString(r.SUCURSAL as string);
+      const rMonth = normalizeMonth(r.MES);
+      const rYear = (r.AÑO || '').toString().trim();
+      if (rEjec !== targetEjec) return;
+      if (rCliente !== targetCliente) return;
+      if (rSucursal !== targetSucursal) return;
+      if (!targetMonths.has(rMonth)) return;
+      if (targetYear !== 'all' && rYear && rYear !== targetYear) return;
+      indices.push(i);
+    });
+
+    if (indices.length === 0) {
+      toast.error('No se encontraron registros para eliminar');
+      return;
+    }
+
+    setBulkDeleting(true);
+    try {
+      await deleteRowsBulk(dataType, indices);
+      const monthList = Array.from(targetMonths);
+      const summary = monthList.length === 1
+        ? monthList[0]
+        : `${monthList[0]} a ${monthList[monthList.length - 1]}`;
+      toast.success(`${indices.length} registro(s) eliminado(s) (${summary}) 🗑️`);
+      setDeleteDialog(null);
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al eliminar registros');
+    } finally {
+      setBulkDeleting(false);
+    }
+  }, [deleteDialog, deleteScope, rangeFrom, rangeTo, rawData, personField, yearFilter, dataType, deleteRowsBulk]);
 
   const getStatusColor = (status: string) => {
     const s = (status || '').toUpperCase();
@@ -227,6 +324,20 @@ export default function DataTableSection() {
           {filtered.length} registros
         </span>
       </div>
+
+      {isEjec && (
+        <div className="flex items-start gap-2 bg-primary/5 border border-primary/20 rounded-lg p-2.5 text-xs text-foreground/80">
+          <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium text-foreground">Ejecutivos: edición restringida</p>
+            <p className="text-muted-foreground">
+              Solo se puede cambiar el <strong>STATUS</strong> de un registro (ej. <em>Programado → Enviado</em>).
+              Para quitar un registro (ej. cliente dado de baja), usa el ícono de papelera y elige el rango de meses.
+              Esta data no se sobrescribe desde Google Sheets.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Filter row */}
       <div className="flex flex-wrap items-center gap-2 bg-muted/40 rounded-lg p-2.5">
@@ -347,7 +458,7 @@ export default function DataTableSection() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                {STATUS_OPTIONS.map(s => (
+                                {statusOptionsForType.map(s => (
                                   <SelectItem key={s} value={s}>{s}</SelectItem>
                                 ))}
                               </SelectContent>
@@ -424,6 +535,84 @@ export default function DataTableSection() {
           )}
         </div>
       </div>
+
+      {/* Dialog de borrado por rango (solo Ejecutivos) */}
+      <Dialog open={!!deleteDialog} onOpenChange={(open) => { if (!open) setDeleteDialog(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Eliminar registro de meta</DialogTitle>
+            <DialogDescription>
+              {deleteDialog && (
+                <span className="block mt-1 text-foreground">
+                  <strong>{(deleteDialog.row[personField] || '').toString()}</strong> –{' '}
+                  {(deleteDialog.row.CLIENTE || '').toString()} ({(deleteDialog.row.SUCURSAL || '').toString()})
+                  <br />
+                  <span className="text-xs text-muted-foreground">
+                    Mes del registro: {normalizeMonth(deleteDialog.row.MES) || '—'} · Año filtro: {yearFilter}
+                  </span>
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <p className="text-sm font-medium text-foreground">¿De qué meses deseas eliminarlo?</p>
+            <RadioGroup value={deleteScope} onValueChange={(v) => setDeleteScope(v as DeleteScope)} className="space-y-2">
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="single" id="scope-single" />
+                <Label htmlFor="scope-single" className="cursor-pointer text-sm">
+                  Solo este mes ({deleteDialog ? (normalizeMonth(deleteDialog.row.MES) || '—') : ''})
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="forward" id="scope-forward" />
+                <Label htmlFor="scope-forward" className="cursor-pointer text-sm">
+                  Desde este mes en adelante (resto del año)
+                </Label>
+              </div>
+              <div className="flex items-start gap-2">
+                <RadioGroupItem value="range" id="scope-range" className="mt-2" />
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="scope-range" className="cursor-pointer text-sm">Rango personalizado</Label>
+                  {deleteScope === 'range' && (
+                    <div className="flex items-center gap-2">
+                      <Select value={rangeFrom} onValueChange={setRangeFrom}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {MONTH_NAMES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <span className="text-xs text-muted-foreground">a</span>
+                      <Select value={rangeTo} onValueChange={setRangeTo}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {MONTH_NAMES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="year" id="scope-year" />
+                <Label htmlFor="scope-year" className="cursor-pointer text-sm">
+                  Todo el año ({yearFilter === 'all' ? 'todos los años' : yearFilter})
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteDialog(null)} disabled={bulkDeleting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={confirmBulkDelete} disabled={bulkDeleting}>
+              <Trash2 className="w-4 h-4 mr-1" />
+              {bulkDeleting ? 'Eliminando...' : 'Eliminar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
