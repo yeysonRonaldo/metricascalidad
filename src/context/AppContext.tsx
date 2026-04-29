@@ -148,18 +148,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const syncFromGoogleSheets = useCallback(async () => {
     setState(s => ({ ...s, isLoading: true }));
     try {
-      const { supData, ejecData } = await fetchFromGoogleSheets();
+      // Traer SOLO Supervisores desde Google Sheets.
+      // Ejecutivos: la fuente de verdad es Firestore (no se sobrescribe).
+      const [{ supData }, firestoreData] = await Promise.all([
+        fetchFromGoogleSheets(),
+        fetchVisitasData(),
+      ]);
+      const ejecData = firestoreData.ejecData;
       const supRealized = supData.filter(r => isRealized(r.STATUS)).length;
       const ejecRealized = ejecData.filter(r => isRealized(r.STATUS)).length;
       processData(supData, ejecData);
-      toast.success(`Sincronizado: ${supData.length} supervisores (${supRealized} realizados), ${ejecData.length} ejecutivos (${ejecRealized} realizados)`);
-      // Save to Firestore in background
-      const promises: Promise<void>[] = [];
-      if (supData.length > 0) promises.push(saveSupData(supData, true));
-      if (ejecData.length > 0) promises.push(saveEjecData(ejecData, true));
-      Promise.all(promises)
-        .then(() => console.log('Google Sheets data saved to Firestore ✅'))
-        .catch(err => console.error('Error saving to Firestore:', err));
+      toast.success(`Sincronizado: ${supData.length} supervisores (${supRealized} realizados), ${ejecData.length} ejecutivos (${ejecRealized} realizados, desde Firestore)`);
+      // Guardar SOLO Supervisores en Firestore (Ejecutivos ya viene de allí).
+      if (supData.length > 0) {
+        saveSupData(supData, true)
+          .then(() => console.log('Supervisores guardados en Firestore ✅'))
+          .catch(err => console.error('Error guardando supervisores:', err));
+      }
     } catch (err) {
       console.error('Error syncing from Google Sheets:', err);
       toast.error('Error al sincronizar. Cargando datos guardados...');
