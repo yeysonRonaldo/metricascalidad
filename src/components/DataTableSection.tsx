@@ -129,16 +129,29 @@ export default function DataTableSection() {
     return data;
   }, [rawData, yearFilter, monthFilter, search, statusFilter, nameFilter, mesFilter, dateFrom, dateTo, personField]);
 
-  const columns = [
-    { key: 'FECHA', label: 'Fecha', editable: false },
-    { key: 'MES', label: 'Mes', editable: true },
-    { key: personField, label: dataType === 'sup' ? 'Supervisor' : 'Ejecutivo', editable: true },
-    { key: 'CLIENTE', label: 'Cliente', editable: true },
-    { key: 'SUCURSAL', label: 'Sucursal', editable: true },
-    { key: 'STATUS', label: 'Status', editable: true, type: 'select' },
-    { key: 'TIPO DE VISITA', label: 'Tipo de Visita', editable: true },
-    { key: 'OBSERVACIONES', label: 'Observaciones', editable: true },
-  ];
+  const columns = isEjec
+    ? [
+        { key: 'FECHA', label: 'Fecha', editable: false },
+        { key: 'MES', label: 'Mes', editable: false },
+        { key: personField, label: 'Ejecutivo', editable: false },
+        { key: 'CLIENTE', label: 'Cliente', editable: false },
+        { key: 'SUCURSAL', label: 'Sucursal', editable: false },
+        { key: 'STATUS', label: 'Status', editable: true, type: 'select' as const },
+        { key: 'TIPO DE VISITA', label: 'Tipo de Visita', editable: false },
+        { key: 'OBSERVACIONES', label: 'Observaciones', editable: false },
+      ]
+    : [
+        { key: 'FECHA', label: 'Fecha', editable: false },
+        { key: 'MES', label: 'Mes', editable: true },
+        { key: personField, label: 'Supervisor', editable: true },
+        { key: 'CLIENTE', label: 'Cliente', editable: true },
+        { key: 'SUCURSAL', label: 'Sucursal', editable: true },
+        { key: 'STATUS', label: 'Status', editable: true, type: 'select' as const },
+        { key: 'TIPO DE VISITA', label: 'Tipo de Visita', editable: true },
+        { key: 'OBSERVACIONES', label: 'Observaciones', editable: true },
+      ];
+
+  const statusOptionsForType = isEjec ? EJEC_STATUS_OPTIONS : STATUS_OPTIONS;
 
   const startEdit = (rowIdx: number, field: string, currentValue: string) => {
     setEditingCell({ rowIdx, field });
@@ -154,7 +167,7 @@ export default function DataTableSection() {
     if (!editingCell) return;
     const row = filtered[editingCell.rowIdx];
     if (!row) return;
-    
+
     const originalIdx = rawData.indexOf(row);
     if (originalIdx === -1) return;
 
@@ -175,6 +188,16 @@ export default function DataTableSection() {
   const handleDelete = useCallback(async (rowIdx: number) => {
     const row = filtered[rowIdx];
     if (!row) return;
+
+    if (isEjec) {
+      const rowMonth = normalizeMonth(row.MES) || MONTH_NAMES[0];
+      setDeleteScope('single');
+      setRangeFrom(rowMonth);
+      setRangeTo(MONTH_NAMES[MONTH_NAMES.length - 1]);
+      setDeleteDialog({ rowIdx, row });
+      return;
+    }
+
     const originalIdx = rawData.indexOf(row);
     if (originalIdx === -1) return;
     if (!window.confirm('¿Estás seguro de eliminar este registro?')) return;
@@ -189,7 +212,68 @@ export default function DataTableSection() {
     } finally {
       setDeleting(null);
     }
-  }, [filtered, rawData, dataType, deleteRow]);
+  }, [filtered, rawData, dataType, deleteRow, isEjec]);
+
+  const confirmBulkDelete = useCallback(async () => {
+    if (!deleteDialog) return;
+    const { row } = deleteDialog;
+    const targetEjec = normalizeText(row[personField]);
+    const targetCliente = cleanString(row.CLIENTE as string);
+    const targetSucursal = cleanString(row.SUCURSAL as string);
+    const rowMonth = normalizeMonth(row.MES) || MONTH_NAMES[0];
+
+    let targetMonths: Set<string>;
+    if (deleteScope === 'single') {
+      targetMonths = new Set([rowMonth]);
+    } else if (deleteScope === 'forward') {
+      const startIdx = MONTH_NAMES.indexOf(rowMonth);
+      targetMonths = new Set(MONTH_NAMES.slice(startIdx >= 0 ? startIdx : 0));
+    } else if (deleteScope === 'year') {
+      targetMonths = new Set(MONTH_NAMES);
+    } else {
+      const fromIdx = MONTH_NAMES.indexOf(rangeFrom);
+      const toIdx = MONTH_NAMES.indexOf(rangeTo);
+      const [a, b] = fromIdx <= toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+      targetMonths = new Set(MONTH_NAMES.slice(a, b + 1));
+    }
+
+    const targetYear = yearFilter;
+    const indices: number[] = [];
+    rawData.forEach((r, i) => {
+      const rEjec = normalizeText(r[personField]);
+      const rCliente = cleanString(r.CLIENTE as string);
+      const rSucursal = cleanString(r.SUCURSAL as string);
+      const rMonth = normalizeMonth(r.MES);
+      const rYear = (r.AÑO || '').toString().trim();
+      if (rEjec !== targetEjec) return;
+      if (rCliente !== targetCliente) return;
+      if (rSucursal !== targetSucursal) return;
+      if (!targetMonths.has(rMonth)) return;
+      if (targetYear !== 'all' && rYear && rYear !== targetYear) return;
+      indices.push(i);
+    });
+
+    if (indices.length === 0) {
+      toast.error('No se encontraron registros para eliminar');
+      return;
+    }
+
+    setBulkDeleting(true);
+    try {
+      await deleteRowsBulk(dataType, indices);
+      const monthList = Array.from(targetMonths);
+      const summary = monthList.length === 1
+        ? monthList[0]
+        : `${monthList[0]} a ${monthList[monthList.length - 1]}`;
+      toast.success(`${indices.length} registro(s) eliminado(s) (${summary}) 🗑️`);
+      setDeleteDialog(null);
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al eliminar registros');
+    } finally {
+      setBulkDeleting(false);
+    }
+  }, [deleteDialog, deleteScope, rangeFrom, rangeTo, rawData, personField, yearFilter, dataType, deleteRowsBulk]);
 
   const getStatusColor = (status: string) => {
     const s = (status || '').toUpperCase();
