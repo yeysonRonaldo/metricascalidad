@@ -535,6 +535,84 @@ export default function DataTableSection() {
           )}
         </div>
       </div>
+
+      {/* Dialog de borrado por rango (solo Ejecutivos) */}
+      <Dialog open={!!deleteDialog} onOpenChange={(open) => { if (!open) setDeleteDialog(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Eliminar registro de meta</DialogTitle>
+            <DialogDescription>
+              {deleteDialog && (
+                <span className="block mt-1 text-foreground">
+                  <strong>{(deleteDialog.row[personField] || '').toString()}</strong> –{' '}
+                  {(deleteDialog.row.CLIENTE || '').toString()} ({(deleteDialog.row.SUCURSAL || '').toString()})
+                  <br />
+                  <span className="text-xs text-muted-foreground">
+                    Mes del registro: {normalizeMonth(deleteDialog.row.MES) || '—'} · Año filtro: {yearFilter}
+                  </span>
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <p className="text-sm font-medium text-foreground">¿De qué meses deseas eliminarlo?</p>
+            <RadioGroup value={deleteScope} onValueChange={(v) => setDeleteScope(v as DeleteScope)} className="space-y-2">
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="single" id="scope-single" />
+                <Label htmlFor="scope-single" className="cursor-pointer text-sm">
+                  Solo este mes ({deleteDialog ? (normalizeMonth(deleteDialog.row.MES) || '—') : ''})
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="forward" id="scope-forward" />
+                <Label htmlFor="scope-forward" className="cursor-pointer text-sm">
+                  Desde este mes en adelante (resto del año)
+                </Label>
+              </div>
+              <div className="flex items-start gap-2">
+                <RadioGroupItem value="range" id="scope-range" className="mt-2" />
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="scope-range" className="cursor-pointer text-sm">Rango personalizado</Label>
+                  {deleteScope === 'range' && (
+                    <div className="flex items-center gap-2">
+                      <Select value={rangeFrom} onValueChange={setRangeFrom}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {MONTH_NAMES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <span className="text-xs text-muted-foreground">a</span>
+                      <Select value={rangeTo} onValueChange={setRangeTo}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {MONTH_NAMES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="year" id="scope-year" />
+                <Label htmlFor="scope-year" className="cursor-pointer text-sm">
+                  Todo el año ({yearFilter === 'all' ? 'todos los años' : yearFilter})
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteDialog(null)} disabled={bulkDeleting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={confirmBulkDelete} disabled={bulkDeleting}>
+              <Trash2 className="w-4 h-4 mr-1" />
+              {bulkDeleting ? 'Eliminando...' : 'Eliminar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
