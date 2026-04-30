@@ -23,11 +23,14 @@ export default function DashboardSection({ type }: DashboardSectionProps) {
   const field = type === 'SUPERVISOR' ? 'SUPERVISOR' as const : 'EJECUTIVO' as const;
   const filteredData = useMemo(() => filterByYearMonth(rawData, yearFilter, monthFilter), [rawData, yearFilter, monthFilter]);
 
-  const { stats, gestionGlobal, gestionIndividual } = useMemo(() => computeSupervisorStats(filteredData, field), [filteredData, field]);
+  const metaMode = type === 'EJECUTIVO_PENDIENTE' ? 'all' : 'programmed';
+  const { stats, gestionGlobal, gestionIndividual } = useMemo(() => computeSupervisorStats(filteredData, field, metaMode), [filteredData, field, metaMode]);
   const monthlyData = useMemo(() => computeMonthlyData(filteredData), [filteredData]);
   const timeData = useMemo(() => groupDataByTime(filteredData, timeUnit), [filteredData, timeUnit]);
 
-  const metaCount = filteredData.filter(r => isProgrammed(r.STATUS)).length;
+  const metaCount = metaMode === 'all'
+    ? filteredData.filter(r => isProgrammed(r.STATUS) || isRealized(r.STATUS)).length
+    : filteredData.filter(r => isProgrammed(r.STATUS)).length;
   const realizedCount = filteredData.filter(r => isRealized(r.STATUS)).length;
   const missingCount = Math.max(0, metaCount - realizedCount);
   const realizedPct = metaCount > 0 ? Math.round((realizedCount / metaCount) * 100) : 0;

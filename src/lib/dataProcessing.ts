@@ -235,7 +235,11 @@ export function filterByYearMonth(data: DataRow[], year: string, month: string):
   });
 }
 
-export function computeSupervisorStats(data: DataRow[], field: 'SUPERVISOR' | 'EJECUTIVO'): {
+export function computeSupervisorStats(
+  data: DataRow[],
+  field: 'SUPERVISOR' | 'EJECUTIVO',
+  metaMode: 'programmed' | 'all' = 'programmed'
+): {
   stats: SupervisorStats;
   gestionGlobal: GestionStats;
   gestionIndividual: GestionIndividual;
@@ -247,7 +251,12 @@ export function computeSupervisorStats(data: DataRow[], field: 'SUPERVISOR' | 'E
   data.forEach(row => {
     const sup = ((row[field] as string) || 'Desconocido').trim().toUpperCase() || 'DESCONOCIDO';
     if (!stats[sup]) stats[sup] = { meta: 0, realized: 0 };
-    if (isProgrammed(row.STATUS)) stats[sup].meta++;
+    if (metaMode === 'all') {
+      // Ejecutivos 2: la meta es el total de registros asignados (programados + enviados)
+      if (isProgrammed(row.STATUS) || isRealized(row.STATUS)) stats[sup].meta++;
+    } else {
+      if (isProgrammed(row.STATUS)) stats[sup].meta++;
+    }
     if (isRealized(row.STATUS)) {
       stats[sup].realized++;
       const taskType = getTaskType(row);
