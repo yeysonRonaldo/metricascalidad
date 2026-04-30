@@ -43,6 +43,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>({
     supData: [],
     ejecData: [],
+    ejecPendientesData: [],
     activeTab: 'dashboard',
     yearFilter: '2026',
     monthFilter: 'all',
@@ -54,7 +55,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setYearFilter = useCallback((y: string) => setState(s => ({ ...s, yearFilter: y })), []);
   const setMonthFilter = useCallback((m: string) => setState(s => ({ ...s, monthFilter: m })), []);
 
-  const processData = useCallback((supData: DataRow[], ejecData: DataRow[]) => {
+  const processData = useCallback((supData: DataRow[], ejecData: DataRow[], ejecPendientesData: DataRow[] = []) => {
     const years = new Set<string>();
     supData.forEach(d => { if (d.AÑO) years.add(d.AÑO.toString()); });
     ejecData.forEach(d => { if (d.AÑO) years.add(d.AÑO.toString()); });
@@ -68,6 +69,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ...s,
       supData,
       ejecData,
+      ejecPendientesData,
       yearFilter: latestYear,
       activeTab: defaultTab,
       isLoading: false,
