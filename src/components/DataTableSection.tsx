@@ -483,6 +483,41 @@ export default function DataTableSection() {
                       );
                     }
 
+                    if (isEditing && col.type === 'date') {
+                      const parsed = editValue ? new Date(editValue) : undefined;
+                      const valid = parsed && !isNaN(parsed.getTime()) ? parsed : undefined;
+                      return (
+                        <td key={col.key} className="px-2 py-1">
+                          <div className="flex items-center gap-1">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button variant="outline" className="h-8 text-xs w-[150px] justify-start">
+                                  <CalendarIcon className="w-3 h-3 mr-1" />
+                                  {valid ? format(valid, 'dd/MM/yyyy') : 'Elegir fecha'}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={valid}
+                                  onSelect={(d) => setEditValue(d ? format(d, 'yyyy-MM-dd') : '')}
+                                  locale={es}
+                                  initialFocus
+                                  className={cn("p-3 pointer-events-auto")}
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            <button onClick={saveEdit} disabled={saving === i} className="p-1 rounded hover:bg-green-100 text-green-600">
+                              <Check className="w-4 h-4" />
+                            </button>
+                            <button onClick={cancelEdit} className="p-1 rounded hover:bg-red-100 text-red-600">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      );
+                    }
+
                     if (isEditing) {
                       return (
                         <td key={col.key} className="px-2 py-1">
