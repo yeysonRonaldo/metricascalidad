@@ -165,17 +165,20 @@ export default function DataTableSection() {
     setEditValue('');
   };
 
-  const saveEdit = useCallback(async () => {
-    if (!editingCell) return;
-    const row = filtered[editingCell.rowIdx];
+  const saveEdit = useCallback(async (overrideValue?: string, rowIdxOverride?: number) => {
+    const cell = editingCell ?? (rowIdxOverride !== undefined ? { rowIdx: rowIdxOverride, field: 'STATUS' } : null);
+    if (!cell) return;
+    const row = filtered[cell.rowIdx];
     if (!row) return;
 
     const originalIdx = rawData.indexOf(row);
     if (originalIdx === -1) return;
 
-    setSaving(editingCell.rowIdx);
+    const valueToSave = overrideValue !== undefined ? overrideValue : editValue;
+
+    setSaving(cell.rowIdx);
     try {
-      await updateRow(dataType, originalIdx, editingCell.field, editValue);
+      await updateRow(dataType, originalIdx, cell.field, valueToSave);
       toast.success('Registro actualizado ✅');
     } catch (err) {
       console.error(err);
@@ -186,6 +189,79 @@ export default function DataTableSection() {
       setEditValue('');
     }
   }, [editingCell, editValue, filtered, rawData, dataType, updateRow]);
+
+  // Cambio directo de STATUS sin necesidad de confirmar (clic en celda → Select → guarda)
+  const handleStatusChange = useCallback(async (rowIdx: number, newValue: string) => {
+    const row = filtered[rowIdx];
+    if (!row) return;
+    const originalIdx = rawData.indexOf(row);
+    if (originalIdx === -1) return;
+    setSaving(rowIdx);
+    try {
+      await updateRow(dataType, originalIdx, 'STATUS', newValue);
+      toast.success('Status actualizado ✅');
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al guardar');
+    } finally {
+      setSaving(null);
+      setEditingCell(null);
+      setEditValue('');
+    }
+  }, [filtered, rawData, dataType, updateRow]);
+
+  const [backfilling, setBackfilling] = useState(false);
+
+  // Backfill Ene/Feb/Mar: marca todos los pendientes de esos meses como ENVIADO
+  // y les asigna FECHA ENVIADO aleatoria dentro del mes (que cuadre).
+  const handleBackfillQ1 = useCallback(async () => {
+    if (dataType !== 'ejec_pend') return;
+    if (!window.confirm('Esto marcará TODOS los registros de enero, febrero y marzo como ENVIADO con fechas aleatorias dentro de cada mes. ¿Continuar?')) return;
+
+    const targetMonths = new Set(['ENERO', 'FEBRERO', 'MARZO']);
+    const monthIndex: Record<string, number> = { ENERO: 0, FEBRERO: 1, MARZO: 2 };
+    const daysInMonth = (year: number, monthIdx: number) => new Date(year, monthIdx + 1, 0).getDate();
+
+    const targets: { idx: number; mes: string }[] = [];
+    ejecPendientesData.forEach((r, idx) => {
+      const mes = normalizeMonth(r.MES);
+      if (!targetMonths.has(mes)) return;
+      targets.push({ idx, mes });
+    });
+
+    if (targets.length === 0) {
+      toast.info('No hay registros de enero/febrero/marzo');
+      return;
+    }
+
+    setBackfilling(true);
+    let ok = 0;
+    let fail = 0;
+    try {
+      for (const { idx, mes } of targets) {
+        const row = ejecPendientesData[idx];
+        if (!row) continue;
+        const yearStr = (row.AÑO || '').toString().trim() || yearFilter;
+        const year = parseInt(yearStr, 10) || new Date().getFullYear();
+        const mIdx = monthIndex[mes];
+        const day = 1 + Math.floor(Math.random() * daysInMonth(year, mIdx));
+        const dd = String(day).padStart(2, '0');
+        const mm = String(mIdx + 1).padStart(2, '0');
+        const fechaEnviado = `${year}-${mm}-${dd}`;
+        try {
+          await updateRow('ejec_pend', idx, 'STATUS', 'ENVIADO');
+          await updateRow('ejec_pend', idx, 'FECHA ENVIADO', fechaEnviado);
+          ok++;
+        } catch (e) {
+          console.error('Backfill error en row', idx, e);
+          fail++;
+        }
+      }
+      toast.success(`Backfill listo: ${ok} actualizados${fail ? `, ${fail} fallaron` : ''}`);
+    } finally {
+      setBackfilling(false);
+    }
+  }, [dataType, ejecPendientesData, yearFilter, updateRow]);
 
   const handleDelete = useCallback(async (rowIdx: number) => {
     const row = filtered[rowIdx];
@@ -420,6 +496,19 @@ export default function DataTableSection() {
           </Select>
         )}
 
+        {dataType === 'ejec_pend' && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={handleBackfillQ1}
+            disabled={backfilling}
+            title="Marca Ene/Feb/Mar como ENVIADO con fechas aleatorias"
+          >
+            {backfilling ? 'Procesando...' : 'Backfill Ene–Mar'}
+          </Button>
+        )}
+
         {/* Date from */}
         <Popover>
           <PopoverTrigger asChild>
@@ -481,24 +570,21 @@ export default function DataTableSection() {
                     if (isEditing && col.type === 'select') {
                       return (
                         <td key={col.key} className="px-2 py-1">
-                          <div className="flex items-center gap-1">
-                            <Select value={editValue} onValueChange={v => setEditValue(v)}>
-                              <SelectTrigger className="h-8 text-xs w-[150px]">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {statusOptionsForType.map(s => (
-                                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <button onClick={saveEdit} disabled={saving === i} className="p-1 rounded hover:bg-green-100 text-green-600">
-                              <Check className="w-4 h-4" />
-                            </button>
-                            <button onClick={cancelEdit} className="p-1 rounded hover:bg-red-100 text-red-600">
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
+                          <Select
+                            value={editValue}
+                            onValueChange={v => { setEditValue(v); handleStatusChange(i, v); }}
+                            open
+                            onOpenChange={(open) => { if (!open) cancelEdit(); }}
+                          >
+                            <SelectTrigger className="h-8 text-xs w-[150px]" disabled={saving === i}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {statusOptionsForType.map(s => (
+                                <SelectItem key={s} value={s}>{s}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </td>
                       );
                     }
@@ -527,7 +613,7 @@ export default function DataTableSection() {
                                 />
                               </PopoverContent>
                             </Popover>
-                            <button onClick={saveEdit} disabled={saving === i} className="p-1 rounded hover:bg-green-100 text-green-600">
+                            <button onClick={() => saveEdit()} disabled={saving === i} className="p-1 rounded hover:bg-green-100 text-green-600">
                               <Check className="w-4 h-4" />
                             </button>
                             <button onClick={cancelEdit} className="p-1 rounded hover:bg-red-100 text-red-600">
@@ -549,7 +635,7 @@ export default function DataTableSection() {
                               className="h-8 text-xs"
                               autoFocus
                             />
-                            <button onClick={saveEdit} disabled={saving === i} className="p-1 rounded hover:bg-green-100 text-green-600">
+                            <button onClick={() => saveEdit()} disabled={saving === i} className="p-1 rounded hover:bg-green-100 text-green-600">
                               <Check className="w-4 h-4" />
                             </button>
                             <button onClick={cancelEdit} className="p-1 rounded hover:bg-red-100 text-red-600">
