@@ -75,7 +75,7 @@ async function clearCollection(collectionName: string): Promise<void> {
   console.log(`Firestore [${collectionName}]: ${count} documentos eliminados`);
 }
 
-async function saveToCollection(collectionName: string, data: DataRow[], type: 'sup' | 'ejec', replace = false): Promise<void> {
+async function saveToCollection(collectionName: string, data: DataRow[], type: DataType, replace = false): Promise<void> {
   if (replace) {
     await clearCollection(collectionName);
   }
@@ -114,46 +114,45 @@ export async function saveEjecData(data: DataRow[], replace = false): Promise<vo
   await saveToCollection(COLLECTION_EJEC, data, 'ejec', replace);
 }
 
+export async function saveEjecPendientesData(data: DataRow[], replace = false): Promise<void> {
+  await saveToCollection(COLLECTION_EJEC_PENDIENTES, data, 'ejec_pend', replace);
+}
+
 export async function updateRowInFirestore(
-  type: 'sup' | 'ejec',
+  type: DataType,
   oldRow: DataRow,
   field: string,
   newValue: string
 ): Promise<void> {
-  const collectionName = type === 'sup' ? COLLECTION_SUP : COLLECTION_EJEC;
+  const collectionName = collectionFor(type);
   const oldDocId = generateRowId(oldRow, type);
-  
-  // Create updated row
+
   const updatedRow = { ...oldRow, [field]: newValue };
   delete updatedRow._ROLE;
-  
-  // If key fields changed, we need to delete old doc and create new one
+
   const keyFields = ['FECHA', 'SUPERVISOR', 'EJECUTIVO', 'CLIENTE', 'SUCURSAL', 'STATUS'];
   if (keyFields.includes(field)) {
     const newDocId = generateRowId(updatedRow, type);
-    // Delete old, create new
     try { await deleteDoc(doc(db, collectionName, oldDocId)); } catch { /* ignore */ }
     await setDoc(doc(db, collectionName, newDocId), updatedRow);
   } else {
-    // Just update in place
     try {
       await updateDoc(doc(db, collectionName, oldDocId), { [field]: newValue });
     } catch {
-      // Doc might not exist, create it
       await setDoc(doc(db, collectionName, oldDocId), updatedRow);
     }
   }
 }
 
-export async function deleteRowFromFirestore(type: 'sup' | 'ejec', row: DataRow): Promise<void> {
-  const collectionName = type === 'sup' ? COLLECTION_SUP : COLLECTION_EJEC;
+export async function deleteRowFromFirestore(type: DataType, row: DataRow): Promise<void> {
+  const collectionName = collectionFor(type);
   const docId = generateRowId(row, type);
   await deleteDoc(doc(db, collectionName, docId));
 }
 
-export async function deleteRowsBatchFromFirestore(type: 'sup' | 'ejec', rows: DataRow[]): Promise<void> {
+export async function deleteRowsBatchFromFirestore(type: DataType, rows: DataRow[]): Promise<void> {
   if (rows.length === 0) return;
-  const collectionName = type === 'sup' ? COLLECTION_SUP : COLLECTION_EJEC;
+  const collectionName = collectionFor(type);
   let batch = writeBatch(db);
   let count = 0;
   for (const row of rows) {
