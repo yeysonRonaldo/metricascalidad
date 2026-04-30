@@ -32,6 +32,7 @@ export default function DataTableSection() {
   const [mesFilter, setMesFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [dateField, setDateField] = useState<'FECHA' | 'FECHA ENVIADO'>('FECHA');
   const [editingCell, setEditingCell] = useState<{ rowIdx: number; field: string } | null>(null);
   const [editValue, setEditValue] = useState('');
   const [saving, setSaving] = useState<number | null>(null);
