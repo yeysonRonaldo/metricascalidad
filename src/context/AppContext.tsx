@@ -160,7 +160,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ]);
       const supData = sheetsData.supData;
       const ejecDataFromSheets = sheetsData.ejecData;
-      const ejecData = firestoreData.ejecData;
+      // Ejecutivos (normal): la fuente de verdad ahora es Google Sheets.
+      // Se sobrescribe la colección visitas_ejecutivos en cada sync.
+      const ejecData = ejecDataFromSheets.length > 0 ? ejecDataFromSheets : firestoreData.ejecData;
+      // Ejecutivos 2 (pendientes): NO se toca desde Sheets en cada sync.
+      // Solo se siembra la primera vez (o si está casi vacía por colisiones de IDs).
       let ejecPendientesData = firestoreData.ejecPendientesData;
 
       // Sembrar / re-sembrar pendientes desde Google Sheets:
