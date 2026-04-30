@@ -229,8 +229,6 @@ export function filterByYearMonth(
   const { strict = false } = options;
   return data.filter(row => {
     const { year: rowYear, month: rowMonth } = getDateParts(row);
-    // Modo strict (Ejecutivos 2): si el usuario filtra por un periodo específico,
-    // los registros sin AÑO ni MES NO pasan (evita inflar metas en cada mes).
     if (!rowYear && !rowMonth) {
       // Modo strict (Ejecutivos 2): si el usuario filtra por un periodo específico,
       // los registros sin AÑO ni MES NO pasan (evita inflar metas en cada mes).
