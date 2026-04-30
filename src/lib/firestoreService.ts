@@ -98,14 +98,38 @@ async function saveToCollection(collectionName: string, data: DataRow[], type: D
     existing.forEach((d) => existingIds.add(d.id));
   }
 
+  // Track IDs used within this batch run (incluye los existentes)
+  const usedIds = new Set<string>(existingIds);
+
   let batch = writeBatch(db);
   let writeCount = 0;
 
   for (const row of data) {
-    const docId = generateRowId(row, type);
-    if (existingIds.has(docId)) continue;
+    let docId = generateRowId(row, type);
+
+    // Para ejec_pend: si la clave ya existe (en BD o en este lote),
+    // generar variantes únicas con sufijo numérico para no perder registros.
+    if (type === 'ejec_pend' && usedIds.has(docId)) {
+      let suffix = 1;
+      let candidate = `${docId}_${suffix}`;
+      while (usedIds.has(candidate)) {
+        suffix++;
+        candidate = `${docId}_${suffix}`;
+      }
+      docId = candidate;
+    } else if (type !== 'ejec_pend' && existingIds.has(docId)) {
+      // Comportamiento original: dedup por clave para sup/ejec
+      continue;
+    }
+
+    usedIds.add(docId);
+
     const rowCopy = { ...row };
     delete rowCopy._ROLE;
+    // Guardamos el docId en el propio documento para que update/delete usen exactamente este ID.
+    if (type === 'ejec_pend') {
+      (rowCopy as Record<string, unknown>)._docId = docId;
+    }
     const ref = doc(collection(db, collectionName), docId);
     batch.set(ref, rowCopy);
     writeCount++;
