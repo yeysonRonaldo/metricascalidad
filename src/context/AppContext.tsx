@@ -135,13 +135,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       };
       reader.readAsArrayBuffer(file);
     }
-  }, [state.supData, state.ejecData, processData]);
+  }, [state.supData, state.ejecData, state.ejecPendientesData, processData]);
 
   const loadFromFirestore = useCallback(async () => {
     setState(s => ({ ...s, isLoading: true }));
     try {
-      const { supData, ejecData } = await fetchVisitasData();
-      processData(supData, ejecData);
+      const { supData, ejecData, ejecPendientesData } = await fetchVisitasData();
+      processData(supData, ejecData, ejecPendientesData);
     } catch (err) {
       console.error('Error loading from Firestore:', err);
       setState(s => ({ ...s, isLoading: false }));
@@ -158,11 +158,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
         fetchVisitasData(),
       ]);
       const ejecData = firestoreData.ejecData;
+      let ejecPendientesData = firestoreData.ejecPendientesData;
+
+      // Primera carga: si la colección de pendientes está vacía,
+      // sembrarla con los registros PROGRAMADOS sin MES tomados de Ejecutivos.
+      if (ejecPendientesData.length === 0 && ejecData.length > 0) {
+        const seed = ejecData.filter(r => isProgrammed(r.STATUS) && !String(r.MES || '').trim());
+        if (seed.length > 0) {
+          ejecPendientesData = seed;
+          saveEjecPendientesData(seed)
+            .then(() => console.log(`Ejecutivos pendientes sembrados: ${seed.length} registros ✅`))
+            .catch(err => console.error('Error sembrando pendientes:', err));
+        }
+      }
+
       const supRealized = supData.filter(r => isRealized(r.STATUS)).length;
       const ejecRealized = ejecData.filter(r => isRealized(r.STATUS)).length;
-      processData(supData, ejecData);
-      toast.success(`Sincronizado: ${supData.length} supervisores (${supRealized} realizados), ${ejecData.length} ejecutivos (${ejecRealized} realizados, desde Firestore)`);
-      // Guardar SOLO Supervisores en Firestore (Ejecutivos ya viene de allí).
+      processData(supData, ejecData, ejecPendientesData);
+      toast.success(`Sincronizado: ${supData.length} sup (${supRealized} realiz), ${ejecData.length} ejec (${ejecRealized} realiz), ${ejecPendientesData.length} pendientes`);
+      // Guardar SOLO Supervisores en Firestore.
       if (supData.length > 0) {
         saveSupData(supData, true)
           .then(() => console.log('Supervisores guardados en Firestore ✅'))
@@ -171,10 +185,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('Error syncing from Google Sheets:', err);
       toast.error('Error al sincronizar. Cargando datos guardados...');
-      // Fallback to Firestore
       try {
-        const { supData, ejecData } = await fetchVisitasData();
-        processData(supData, ejecData);
+        const { supData, ejecData, ejecPendientesData } = await fetchVisitasData();
+        processData(supData, ejecData, ejecPendientesData);
       } catch {
         setState(s => ({ ...s, isLoading: false }));
       }
