@@ -1,97 +1,85 @@
+
+# Plan: Nueva pestaña "Ejecutivos 2" (Pendientes sin mes)
+
 ## Objetivo
 
-Cambiar el comportamiento de los datos de **Ejecutivos**:
+Crear una segunda vista de Ejecutivos que muestre **solo los registros con STATUS = PROGRAMADO y columna MES vacía**. Esta vista tendrá su propia copia de los datos en Firestore (backup independiente) para que las ediciones (PROGRAMADO → ENVIADO) no afecten la base original de Ejecutivos.
 
-1. **Dejar de sobrescribir** Ejecutivos desde Google Sheets. La fuente de verdad es Firestore.
-2. **Restringir la edición** de Ejecutivos: los usuarios solo pueden cambiar el STATUS de `PROGRAMADO` a `ENVIADO` (no editar nombres, clientes, fechas, etc.). Esto evita errores tipográficos que descuadran las metas.
-3. **Eliminación inteligente con propagación a meses futuros**: cuando se elimina un registro (cliente dado de baja), poder eliminarlo del mes actual, de un rango de meses, o de "todos los meses futuros" para esa persona/cliente/sucursal.
+## Cómo entiendo el caso
 
-Los datos de **Supervisores** se quedan igual que hoy (siguen sincronizando desde Google Sheets).
+- Hoy "Ejecutivos" muestra todos los registros del Excel (PROGRAMADO + ENVIADO + lo que tengan).
+- Quieres una vista paralela "Ejecutivos 2" idéntica visualmente (KPIs, tarjetas de meta, gráficas, tabla editable) pero filtrada únicamente a las **metas pendientes sin mes** (PROGRAMADO + MES vacío).
+- Esta vista debe trabajar sobre una **copia separada** en Firestore. Cuando se sincronice desde Google Sheets, copiamos a esa colección **solo los registros PROGRAMADOS sin mes**.
+- A medida que el usuario cambie un registro a ENVIADO en esta vista, se actualiza solo en esta copia (no toca la colección original `visitas_ejecutivos`).
 
----
+## Cambios
 
-## Cambios planeados
+### 1. Backend (Firestore)
+- Nueva colección: `visitas_ejecutivos_pendientes`.
+- En `src/lib/firestoreService.ts`:
+  - Agregar `saveEjecPendientesData(data, replace)` y constante `COLLECTION_EJEC_PENDIENTES`.
+  - Extender `fetchVisitasData()` para que también devuelva `ejecPendientesData`.
+  - Extender `updateRowInFirestore`, `deleteRowFromFirestore`, `deleteRowsBatchFromFirestore` para aceptar el tipo `'ejec_pend'`.
 
-### 1. Sincronización: Ejecutivos ya no se trae de Google Sheets
+### 2. Estado global (`src/context/AppContext.tsx`)
+- Añadir `ejecPendientesData: DataRow[]` al estado.
+- En `syncFromGoogleSheets`:
+  - Después de traer Supervisores de Google Sheets, filtrar:
+    ```
+    pendientes = supDataOriginalEjec.filter(r =>
+      isProgrammed(r.STATUS) && !String(r.MES || '').trim()
+    )
+    ```
+  - **Origen de la copia**: la vista de Ejecutivos hoy se alimenta de Firestore (decoupled). La copia de "Ejecutivos 2" se generará a partir de **`ejecData` de Firestore** filtrando PROGRAMADO + MES vacío, y se guardará en `visitas_ejecutivos_pendientes` solo si la colección está vacía (primera carga). En cargas posteriores, si ya existe contenido en la colección de pendientes, se respeta (igual que hoy con Ejecutivos) para no perder los cambios PROGRAMADO → ENVIADO.
+- Exponer `updateEjecPendienteRow`, `deleteEjecPendienteRow`, `deleteEjecPendientesBulk`.
 
-Archivo: `src/context/AppContext.tsx` → `syncFromGoogleSheets`
+### 3. UI - Nueva pestaña
+- En `src/types/metrics.ts`: agregar `'ejecutivos2'` a `TabName`.
+- En `src/components/Header.tsx`: nueva tab "Ejecutivos 2" (icono `ClipboardList`), visible solo si `ejecPendientesData.length > 0`.
+- En `src/pages/Index.tsx`: rutear `activeTab === 'ejecutivos2'` a un nuevo componente.
 
-- Seguir trayendo `supData` desde Google Sheets (igual que ahora).
-- Para `ejecData`: **no** llamar a Google Sheets ni hacer `saveEjecData(..., true)`. En su lugar, leer siempre desde Firestore con `fetchVisitasData()` y usar solo el `ejecData` que viene de allí.
-- Resultado: cualquier edición/borrado en el sistema se conserva y no se sobrescribe en el siguiente refresh.
-- En `googleSheetsService.ts` se puede dejar `fetchCSV(GID_EJECUTIVOS)` sin uso, o eliminar la llamada para ahorrar la descarga.
+### 4. Componente de dashboard
+- Reutilizar `DashboardSection` parametrizado. Hoy acepta `type: 'SUPERVISOR' | 'EJECUTIVO'` y elige `supData`/`ejecData` desde el contexto.
+- Agregar un tercer modo `type: 'EJECUTIVO_PENDIENTE'` que tome `ejecPendientesData`. Las gráficas, KPIs y tarjetas de meta funcionan igual (mismo shape de `DataRow`).
+- Título: "📋 Ejecutivos - Metas Pendientes (sin mes)".
 
-Nota: la primera vez que se aplique este cambio, los Ejecutivos que ya están en Firestore (gracias a las sincronizaciones previas) se mantienen como base. No se pierde información.
+### 5. Tabla editable
+- Extender `DataTableSection` con un tercer modo `'ejec_pend'` (botón en el switch de tipo, junto a Supervisores/Ejecutivos), o crear un componente delgado que reutilice la lógica.
+- Reglas de edición iguales a Ejecutivos: solo STATUS editable, opciones `['PROGRAMADO', 'ENVIADO']`.
+- Al cambiar a ENVIADO, el registro permanece en la colección de pendientes (queda como histórico de "ya enviado") — o se puede mover/eliminar. **Decisión propuesta**: mantenerlo visible para que se vea el progreso; el filtro PROGRAMADO/ENVIADO ya existe en la tabla.
 
-### 2. Edición restringida en la Base de Datos para Ejecutivos
+## Detalle técnico
 
-Archivo: `src/components/DataTableSection.tsx`
-
-Cuando `dataType === 'ejec'`:
-
-- **Solo la columna STATUS es editable**, y únicamente con dos opciones en el dropdown: `PROGRAMADO` y `ENVIADO`.
-- El resto de columnas (Mes, Ejecutivo, Cliente, Sucursal, Tipo de Visita, Observaciones) se muestran como **solo lectura** (sin cursor de editar, sin lápiz).
-- La columna FECHA ya es solo lectura — se queda igual.
-- El botón de eliminar (papelera) se reemplaza por el nuevo flujo del punto 3.
-
-Para Supervisores se mantiene la edición libre actual.
-
-### 3. Eliminación con rango de meses (solo Ejecutivos)
-
-Reemplazar el `window.confirm` actual por un **diálogo modal** (componente `Dialog` de shadcn ya disponible) que pregunte al usuario qué quiere eliminar.
-
-Opciones del diálogo:
-
-```text
-Eliminar registro de [CLIENTE] – [SUCURSAL] – [EJECUTIVO]
-
-¿De qué meses deseas eliminarlo?
-  ( ) Solo este mes ([MES actual del registro])
-  ( ) Desde este mes en adelante (todos los meses futuros del año)
-  ( ) Rango personalizado:  [Desde: select mes]  [Hasta: select mes]
-  ( ) Todo el año
-
-[Cancelar]   [Eliminar]
+**Filtro de copia (regla única):**
+```typescript
+const esPendiente = (r: DataRow) =>
+  isProgrammed(r.STATUS) &&
+  !String(r.MES || '').trim();
 ```
 
-Lógica de borrado:
+**Flujo de sincronización:**
+```
+Google Sheets → supData (Firestore)
+Firestore visitas_ejecutivos → ejecData (sin tocar)
+Firestore visitas_ejecutivos_pendientes → ejecPendientesData
+  ↳ si está vacío en primera ejecución: poblar desde ejecData.filter(esPendiente)
+```
 
-- Identificar todos los registros en `ejecData` que coincidan en `EJECUTIVO + CLIENTE + SUCURSAL` (normalizados) dentro del año seleccionado y del rango de meses elegido.
-- Eliminarlos en lote de Firestore (reusando `deleteRowFromFirestore` por cada uno) y del estado local.
-- Mostrar toast con el conteo: `"N registros eliminados de [MES1] a [MES2] ✅"`.
-
-### 4. Servicio de borrado en lote
-
-Archivo: `src/lib/firestoreService.ts`
-
-Añadir `deleteRowsBatchFromFirestore(type, rows[])` que use `writeBatch` y borre hasta 500 docs por batch (igual que `clearCollection`). Esto evita N llamadas individuales cuando el rango cubre varios meses.
-
-Archivo: `src/context/AppContext.tsx`
-
-Añadir `deleteRowsBulk(type, indices[])` que actualiza el estado local (filtra por índice) y llama a la nueva función batch.
-
-### 5. UX y consistencia
-
-- En el botón de cambio de pestaña Ejecutivos en la tabla, añadir un texto pequeño debajo: *"Solo se puede modificar el STATUS (Programado → Enviado). Para eliminar usa el ícono de papelera."*
-- Añadir un badge/aviso en la sección Ejecutivos del Dashboard indicando que la fuente es Firestore (opcional).
-
----
-
-## Detalles técnicos
-
-- `STATUS_OPTIONS` para Ejecutivos se reduce a `['PROGRAMADO', 'ENVIADO']` (constante separada `EJEC_STATUS_OPTIONS`).
-- Reusar el helper `cleanString` y `normalizeText` ya existentes para emparejar CLIENTE/SUCURSAL/EJECUTIVO al borrar por rango (evita falsos negativos por mayúsculas/acentos).
-- El año del rango es el `yearFilter` activo del contexto.
-- El orden de meses se obtiene de `MONTH_NAMES` (ya exportado en `dataProcessing.ts`).
-- No se tocan permisos por rol todavía (todos los usuarios autenticados pueden eliminar). Si más adelante quieres restringirlo a admin/supervisor, se puede agregar fácilmente.
+**Independencia**: editar un registro en "Ejecutivos 2" actualiza solo `visitas_ejecutivos_pendientes`. La colección `visitas_ejecutivos` original queda intacta.
 
 ## Archivos a modificar
+- `src/types/metrics.ts`
+- `src/lib/firestoreService.ts`
+- `src/context/AppContext.tsx`
+- `src/components/Header.tsx`
+- `src/pages/Index.tsx`
+- `src/components/DashboardSection.tsx`
+- `src/components/DataTableSection.tsx`
 
-- `src/context/AppContext.tsx` – cortar sync de ejec desde Sheets, añadir `deleteRowsBulk`.
-- `src/lib/googleSheetsService.ts` – exportar solo `supData` (o seguir devolviendo ambos pero sin usar ejec).
-- `src/lib/firestoreService.ts` – añadir borrado en lote.
-- `src/components/DataTableSection.tsx` – edición restringida + nuevo diálogo de borrado por rango.
+## Pregunta antes de implementar
 
-## Confirmación que necesito antes de implementar
+Cuando un registro pasa de **PROGRAMADO → ENVIADO** en "Ejecutivos 2", ¿qué prefieres?
+- (A) Que se quede visible en Ejecutivos 2 (marcado ENVIADO) para ver el avance.
+- (B) Que desaparezca de Ejecutivos 2 (se elimine de esa colección) ya que dejó de ser "pendiente".
 
-¿La opción "Desde este mes en adelante" debe limitarse al **año actualmente filtrado**, o debe propagarse también a años futuros si existen registros? (Por defecto asumiré: solo el año filtrado.)
+Si no respondes, asumo **(A)** por defecto.
