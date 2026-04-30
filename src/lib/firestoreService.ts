@@ -5,6 +5,15 @@ import type { DataRow } from "@/types/metrics";
 
 const COLLECTION_SUP = "visitas_supervisores";
 const COLLECTION_EJEC = "visitas_ejecutivos";
+const COLLECTION_EJEC_PENDIENTES = "visitas_ejecutivos_pendientes";
+
+type DataType = 'sup' | 'ejec' | 'ejec_pend';
+
+function collectionFor(type: DataType): string {
+  if (type === 'sup') return COLLECTION_SUP;
+  if (type === 'ejec') return COLLECTION_EJEC;
+  return COLLECTION_EJEC_PENDIENTES;
+}
 
 function generateRowId(row: DataRow, type: 'sup' | 'ejec'): string {
   const fecha = (row.FECHA || '').toString().trim();
