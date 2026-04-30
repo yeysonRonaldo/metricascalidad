@@ -28,7 +28,9 @@ export default function DashboardSection({ type }: DashboardSectionProps) {
   const monthlyData = useMemo(() => computeMonthlyData(filteredData), [filteredData]);
   const timeData = useMemo(() => groupDataByTime(filteredData, timeUnit), [filteredData, timeUnit]);
 
-  const metaCount = filteredData.filter(r => isProgrammed(r.STATUS)).length;
+  const metaCount = metaMode === 'all'
+    ? filteredData.filter(r => isProgrammed(r.STATUS) || isRealized(r.STATUS)).length
+    : filteredData.filter(r => isProgrammed(r.STATUS)).length;
   const realizedCount = filteredData.filter(r => isRealized(r.STATUS)).length;
   const missingCount = Math.max(0, metaCount - realizedCount);
   const realizedPct = metaCount > 0 ? Math.round((realizedCount / metaCount) * 100) : 0;
