@@ -24,7 +24,7 @@ const EJEC_STATUS_OPTIONS = ['PROGRAMADO', 'ENVIADO'];
 type DeleteScope = 'single' | 'forward' | 'range' | 'year';
 
 export default function DataTableSection() {
-  const { supData, ejecData, yearFilter, monthFilter, updateRow, deleteRow, deleteRowsBulk } = useAppContext();
+  const { supData, ejecData, ejecPendientesData, yearFilter, monthFilter, updateRow, deleteRow, deleteRowsBulk } = useAppContext();
   const [dataType, setDataType] = useState<DataType>('sup');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -42,9 +42,9 @@ export default function DataTableSection() {
   const [rangeTo, setRangeTo] = useState<string>(MONTH_NAMES[MONTH_NAMES.length - 1]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
-  const rawData = dataType === 'sup' ? supData : ejecData;
+  const rawData = dataType === 'sup' ? supData : dataType === 'ejec' ? ejecData : ejecPendientesData;
   const personField = dataType === 'sup' ? 'SUPERVISOR' : 'EJECUTIVO';
-  const isEjec = dataType === 'ejec';
+  const isEjec = dataType === 'ejec' || dataType === 'ejec_pend';
 
   // Unique names for dropdown
   const uniqueNames = useMemo(() => {
