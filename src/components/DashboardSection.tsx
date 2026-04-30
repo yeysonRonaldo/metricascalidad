@@ -10,16 +10,16 @@ import { FileDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface DashboardSectionProps {
-  type: 'SUPERVISOR' | 'EJECUTIVO';
+  type: 'SUPERVISOR' | 'EJECUTIVO' | 'EJECUTIVO_PENDIENTE';
 }
 
 export default function DashboardSection({ type }: DashboardSectionProps) {
-  const { supData, ejecData, yearFilter, monthFilter } = useAppContext();
+  const { supData, ejecData, ejecPendientesData, yearFilter, monthFilter } = useAppContext();
   const [timeUnit, setTimeUnit] = useState<TimeUnit>('month');
   const [exporting, setExporting] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const rawData = type === 'SUPERVISOR' ? supData : ejecData;
+  const rawData = type === 'SUPERVISOR' ? supData : type === 'EJECUTIVO' ? ejecData : ejecPendientesData;
   const field = type === 'SUPERVISOR' ? 'SUPERVISOR' as const : 'EJECUTIVO' as const;
   const filteredData = useMemo(() => filterByYearMonth(rawData, yearFilter, monthFilter), [rawData, yearFilter, monthFilter]);
 
@@ -38,8 +38,12 @@ export default function DashboardSection({ type }: DashboardSectionProps) {
     if (s.realized > topCount) { topCount = s.realized; topPerson = name; }
   }
 
-  const sectionTitle = type === 'SUPERVISOR' ? 'Rendimiento de Supervisores' : 'Rendimiento de Ejecutivos';
-  const icon = type === 'SUPERVISOR' ? '👔' : '💼';
+  const sectionTitle = type === 'SUPERVISOR'
+    ? 'Rendimiento de Supervisores'
+    : type === 'EJECUTIVO'
+    ? 'Rendimiento de Ejecutivos'
+    : 'Ejecutivos - Metas Pendientes (sin mes)';
+  const icon = type === 'SUPERVISOR' ? '👔' : type === 'EJECUTIVO' ? '💼' : '📋';
 
   const handleExportPdf = async () => {
     if (!containerRef.current) return;

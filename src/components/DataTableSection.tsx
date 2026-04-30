@@ -16,7 +16,7 @@ import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { DataRow } from '@/types/metrics';
 
-type DataType = 'sup' | 'ejec';
+type DataType = 'sup' | 'ejec' | 'ejec_pend';
 
 const STATUS_OPTIONS = ['REALIZADO', 'PROGRAMADO', 'CANCELADO', 'REPROGRAMADO', 'NO REALIZADO', 'PENDIENTE'];
 const EJEC_STATUS_OPTIONS = ['PROGRAMADO', 'ENVIADO'];
@@ -24,7 +24,7 @@ const EJEC_STATUS_OPTIONS = ['PROGRAMADO', 'ENVIADO'];
 type DeleteScope = 'single' | 'forward' | 'range' | 'year';
 
 export default function DataTableSection() {
-  const { supData, ejecData, yearFilter, monthFilter, updateRow, deleteRow, deleteRowsBulk } = useAppContext();
+  const { supData, ejecData, ejecPendientesData, yearFilter, monthFilter, updateRow, deleteRow, deleteRowsBulk } = useAppContext();
   const [dataType, setDataType] = useState<DataType>('sup');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -42,9 +42,9 @@ export default function DataTableSection() {
   const [rangeTo, setRangeTo] = useState<string>(MONTH_NAMES[MONTH_NAMES.length - 1]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
-  const rawData = dataType === 'sup' ? supData : ejecData;
+  const rawData = dataType === 'sup' ? supData : dataType === 'ejec' ? ejecData : ejecPendientesData;
   const personField = dataType === 'sup' ? 'SUPERVISOR' : 'EJECUTIVO';
-  const isEjec = dataType === 'ejec';
+  const isEjec = dataType === 'ejec' || dataType === 'ejec_pend';
 
   // Unique names for dropdown
   const uniqueNames = useMemo(() => {
@@ -307,6 +307,12 @@ export default function DataTableSection() {
             className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${dataType === 'ejec' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
           >
             Ejecutivos ({ejecData.length})
+          </button>
+          <button
+            onClick={() => { setDataType('ejec_pend'); setSearch(''); setEditingCell(null); setStatusFilter('all'); setNameFilter('all'); setMesFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${dataType === 'ejec_pend' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            Ejecutivos 2 ({ejecPendientesData.length})
           </button>
         </div>
 
