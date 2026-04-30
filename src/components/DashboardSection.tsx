@@ -10,16 +10,16 @@ import { FileDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface DashboardSectionProps {
-  type: 'SUPERVISOR' | 'EJECUTIVO';
+  type: 'SUPERVISOR' | 'EJECUTIVO' | 'EJECUTIVO_PENDIENTE';
 }
 
 export default function DashboardSection({ type }: DashboardSectionProps) {
-  const { supData, ejecData, yearFilter, monthFilter } = useAppContext();
+  const { supData, ejecData, ejecPendientesData, yearFilter, monthFilter } = useAppContext();
   const [timeUnit, setTimeUnit] = useState<TimeUnit>('month');
   const [exporting, setExporting] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const rawData = type === 'SUPERVISOR' ? supData : ejecData;
+  const rawData = type === 'SUPERVISOR' ? supData : type === 'EJECUTIVO' ? ejecData : ejecPendientesData;
   const field = type === 'SUPERVISOR' ? 'SUPERVISOR' as const : 'EJECUTIVO' as const;
   const filteredData = useMemo(() => filterByYearMonth(rawData, yearFilter, monthFilter), [rawData, yearFilter, monthFilter]);
 
