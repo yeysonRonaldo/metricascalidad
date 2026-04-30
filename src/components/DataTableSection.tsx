@@ -402,6 +402,19 @@ export default function DataTableSection() {
           </datalist>
         </div>
 
+        {/* Date field selector (solo Ejecutivos 2) */}
+        {dataType === 'ejec_pend' && (
+          <Select value={dateField} onValueChange={(v) => setDateField(v as 'FECHA' | 'FECHA ENVIADO')}>
+            <SelectTrigger className="h-8 text-xs w-[150px] bg-background">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="FECHA">Por Fecha</SelectItem>
+              <SelectItem value="FECHA ENVIADO">Por Fecha Enviado</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+
         {/* Date from */}
         <Popover>
           <PopoverTrigger asChild>
