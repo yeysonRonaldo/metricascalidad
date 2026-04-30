@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useAppContext } from '@/context/AppContext';
-import { filterByYearMonth, MONTH_NAMES, normalizeText, cleanString, normalizeMonth } from '@/lib/dataProcessing';
+import { filterByYearMonth, MONTH_NAMES, normalizeText, cleanString, normalizeMonth, parseDateValue } from '@/lib/dataProcessing';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
@@ -101,17 +101,14 @@ export default function DataTableSection() {
     // Date range filter (FECHA o FECHA ENVIADO)
     if (dateFrom || dateTo) {
       const field = dataType === 'ejec_pend' ? dateField : 'FECHA';
+      const fromTs = dateFrom ? new Date(dateFrom.getFullYear(), dateFrom.getMonth(), dateFrom.getDate()).getTime() : null;
+      const toTs = dateTo ? new Date(dateTo.getFullYear(), dateTo.getMonth(), dateTo.getDate(), 23, 59, 59, 999).getTime() : null;
       data = data.filter(r => {
-        const fecha = (r[field] || '').toString();
-        if (!fecha) return false;
-        const d = new Date(fecha);
-        if (isNaN(d.getTime())) return false;
-        if (dateFrom && d < dateFrom) return false;
-        if (dateTo) {
-          const end = new Date(dateTo);
-          end.setHours(23, 59, 59, 999);
-          if (d > end) return false;
-        }
+        const d = parseDateValue(r[field]);
+        if (!d) return false;
+        const ts = d.getTime();
+        if (fromTs !== null && ts < fromTs) return false;
+        if (toTs !== null && ts > toTs) return false;
         return true;
       });
     }
