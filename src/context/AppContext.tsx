@@ -207,24 +207,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const updateRow = useCallback(async (type: 'sup' | 'ejec', index: number, field: string, value: string) => {
-    const dataKey = type === 'sup' ? 'supData' : 'ejecData';
+  const dataKeyFor = (type: 'sup' | 'ejec' | 'ejec_pend'): 'supData' | 'ejecData' | 'ejecPendientesData' => {
+    if (type === 'sup') return 'supData';
+    if (type === 'ejec') return 'ejecData';
+    return 'ejecPendientesData';
+  };
+
+  const updateRow = useCallback(async (type: 'sup' | 'ejec' | 'ejec_pend', index: number, field: string, value: string) => {
+    const dataKey = dataKeyFor(type);
     const oldRow = state[dataKey][index];
     if (!oldRow) throw new Error('Row not found');
 
-    // Update local state immediately
     setState(s => {
       const newData = [...s[dataKey]];
       newData[index] = { ...newData[index], [field]: value };
       return { ...s, [dataKey]: newData };
     });
 
-    // Persist to Firestore
     await updateRowInFirestore(type, oldRow, field, value);
-  }, [state.supData, state.ejecData]);
+  }, [state.supData, state.ejecData, state.ejecPendientesData]);
 
-  const deleteRow = useCallback(async (type: 'sup' | 'ejec', index: number) => {
-    const dataKey = type === 'sup' ? 'supData' : 'ejecData';
+  const deleteRow = useCallback(async (type: 'sup' | 'ejec' | 'ejec_pend', index: number) => {
+    const dataKey = dataKeyFor(type);
     const row = state[dataKey][index];
     if (!row) throw new Error('Row not found');
 
@@ -235,11 +239,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
 
     await deleteRowFromFirestore(type, row);
-  }, [state.supData, state.ejecData]);
+  }, [state.supData, state.ejecData, state.ejecPendientesData]);
 
-  const deleteRowsBulk = useCallback(async (type: 'sup' | 'ejec', indices: number[]) => {
+  const deleteRowsBulk = useCallback(async (type: 'sup' | 'ejec' | 'ejec_pend', indices: number[]) => {
     if (indices.length === 0) return;
-    const dataKey = type === 'sup' ? 'supData' : 'ejecData';
+    const dataKey = dataKeyFor(type);
     const idxSet = new Set(indices);
     const rowsToDelete = indices
       .map(i => state[dataKey][i])
@@ -252,7 +256,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
 
     await deleteRowsBatchFromFirestore(type, rowsToDelete);
-  }, [state.supData, state.ejecData]);
+  }, [state.supData, state.ejecData, state.ejecPendientesData]);
 
   // Auto-sync from Google Sheets on mount
   useEffect(() => {
