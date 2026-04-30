@@ -574,6 +574,19 @@ export default function DataTableSection() {
           </Button>
         )}
 
+        {dataType === 'ejec_pend' && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={handleDedup}
+            disabled={dedup}
+            title="Elimina registros duplicados conservando ENVIADO"
+          >
+            {dedup ? 'Limpiando...' : 'Limpiar duplicados'}
+          </Button>
+        )}
+
         {/* Date from */}
         <Popover>
           <PopoverTrigger asChild>
