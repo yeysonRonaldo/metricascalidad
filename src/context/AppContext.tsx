@@ -10,6 +10,7 @@ import * as XLSX from 'xlsx';
 interface AppState {
   supData: DataRow[];
   ejecData: DataRow[];
+  ejecPendientesData: DataRow[];
   activeTab: TabName;
   yearFilter: string;
   monthFilter: string;
@@ -24,9 +25,9 @@ interface AppContextType extends AppState {
   handleFileUpload: (file: File) => void;
   loadFromFirestore: () => Promise<void>;
   syncFromGoogleSheets: () => Promise<void>;
-  updateRow: (type: 'sup' | 'ejec', index: number, field: string, value: string) => Promise<void>;
-  deleteRow: (type: 'sup' | 'ejec', index: number) => Promise<void>;
-  deleteRowsBulk: (type: 'sup' | 'ejec', indices: number[]) => Promise<void>;
+  updateRow: (type: 'sup' | 'ejec' | 'ejec_pend', index: number, field: string, value: string) => Promise<void>;
+  deleteRow: (type: 'sup' | 'ejec' | 'ejec_pend', index: number) => Promise<void>;
+  deleteRowsBulk: (type: 'sup' | 'ejec' | 'ejec_pend', indices: number[]) => Promise<void>;
   hasData: boolean;
 }
 
