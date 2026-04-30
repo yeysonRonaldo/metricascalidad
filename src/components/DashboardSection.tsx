@@ -21,7 +21,10 @@ export default function DashboardSection({ type }: DashboardSectionProps) {
 
   const rawData = type === 'SUPERVISOR' ? supData : type === 'EJECUTIVO' ? ejecData : ejecPendientesData;
   const field = type === 'SUPERVISOR' ? 'SUPERVISOR' as const : 'EJECUTIVO' as const;
-  const filteredData = useMemo(() => filterByYearMonth(rawData, yearFilter, monthFilter), [rawData, yearFilter, monthFilter]);
+  const filteredData = useMemo(
+    () => filterByYearMonth(rawData, yearFilter, monthFilter, { strict: type === 'EJECUTIVO_PENDIENTE' }),
+    [rawData, yearFilter, monthFilter, type]
+  );
 
   const metaMode = type === 'EJECUTIVO_PENDIENTE' ? 'all' : 'programmed';
   const { stats, gestionGlobal, gestionIndividual } = useMemo(() => computeSupervisorStats(filteredData, field, metaMode), [filteredData, field, metaMode]);
