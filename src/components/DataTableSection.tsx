@@ -129,7 +129,7 @@ export default function DataTableSection() {
     }
 
     return data;
-  }, [rawData, yearFilter, monthFilter, search, statusFilter, nameFilter, mesFilter, dateFrom, dateTo, personField]);
+  }, [rawData, yearFilter, monthFilter, search, statusFilter, nameFilter, mesFilter, dateFrom, dateTo, dateField, dataType, personField]);
 
   const columns = isEjec
     ? [
