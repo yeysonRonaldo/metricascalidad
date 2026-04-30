@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useAppContext } from '@/context/AppContext';
-import { filterByYearMonth, MONTH_NAMES, normalizeText, cleanString, normalizeMonth, parseDateValue } from '@/lib/dataProcessing';
+import { filterByYearMonth, MONTH_NAMES, normalizeText, cleanString, normalizeMonth, parseDateValue, isRealized } from '@/lib/dataProcessing';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
@@ -273,6 +273,61 @@ export default function DataTableSection() {
     }
   }, [dataType, ejecPendientesData, yearFilter, updateRow]);
 
+  const [dedup, setDedup] = useState(false);
+
+  // Limpia duplicados en Ejecutivos 2: agrupa por (EJECUTIVO|CLIENTE|SUCURSAL|MES|TIPO|OBSERVACIONES)
+  // y conserva 1 solo registro por grupo, prefiriendo el ENVIADO sobre el PROGRAMADO.
+  const handleDedup = useCallback(async () => {
+    if (dataType !== 'ejec_pend') return;
+    if (!window.confirm('Esto eliminará registros duplicados de Ejecutivos 2 (mismo ejecutivo + cliente + sucursal + mes). Se conservará el ENVIADO si existe. ¿Continuar?')) return;
+
+    const norm = (v: unknown) => (v ?? '').toString().trim().toUpperCase();
+    const groups = new Map<string, number[]>();
+    ejecPendientesData.forEach((r, idx) => {
+      const key = [
+        norm(r.EJECUTIVO),
+        norm(r.CLIENTE),
+        norm(r.SUCURSAL),
+        norm(r.MES),
+        norm(r.AÑO),
+        norm(r['TIPO DE VISITA']),
+        norm(r.OBSERVACIONES),
+      ].join('|');
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(idx);
+    });
+
+    const toDelete: number[] = [];
+    groups.forEach(indices => {
+      if (indices.length <= 1) return;
+      // Ordenar: primero los ENVIADO/realized, luego los demás
+      const sorted = [...indices].sort((a, b) => {
+        const ra = isRealized(ejecPendientesData[a].STATUS) ? 0 : 1;
+        const rb = isRealized(ejecPendientesData[b].STATUS) ? 0 : 1;
+        return ra - rb;
+      });
+      // Conservar el primero, eliminar el resto
+      for (let i = 1; i < sorted.length; i++) toDelete.push(sorted[i]);
+    });
+
+    if (toDelete.length === 0) {
+      toast.info('No hay duplicados');
+      return;
+    }
+
+    setDedup(true);
+    try {
+      await deleteRowsBulk('ejec_pend', toDelete);
+      toast.success(`${toDelete.length} duplicados eliminados`);
+    } catch (e) {
+      console.error(e);
+      toast.error('Error al limpiar duplicados');
+    } finally {
+      setDedup(false);
+    }
+  }, [dataType, ejecPendientesData, deleteRowsBulk]);
+
+
   const handleDelete = useCallback(async (rowIdx: number) => {
     const row = filtered[rowIdx];
     if (!row) return;
@@ -516,6 +571,19 @@ export default function DataTableSection() {
             title="Marca Ene/Feb/Mar como ENVIADO con fechas aleatorias"
           >
             {backfilling ? 'Procesando...' : 'Backfill Ene–Mar'}
+          </Button>
+        )}
+
+        {dataType === 'ejec_pend' && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={handleDedup}
+            disabled={dedup}
+            title="Elimina registros duplicados conservando ENVIADO"
+          >
+            {dedup ? 'Limpiando...' : 'Limpiar duplicados'}
           </Button>
         )}
 
