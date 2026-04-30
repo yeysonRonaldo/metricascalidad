@@ -308,6 +308,12 @@ export default function DataTableSection() {
           >
             Ejecutivos ({ejecData.length})
           </button>
+          <button
+            onClick={() => { setDataType('ejec_pend'); setSearch(''); setEditingCell(null); setStatusFilter('all'); setNameFilter('all'); setMesFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${dataType === 'ejec_pend' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            Ejecutivos 2 ({ejecPendientesData.length})
+          </button>
         </div>
 
         <div className="relative flex-1 min-w-[180px] max-w-xs">
