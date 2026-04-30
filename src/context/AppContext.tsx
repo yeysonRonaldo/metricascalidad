@@ -151,21 +151,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const syncFromGoogleSheets = useCallback(async () => {
     setState(s => ({ ...s, isLoading: true }));
     try {
-      // Traer SOLO Supervisores desde Google Sheets.
-      // Ejecutivos: la fuente de verdad es Firestore (no se sobrescribe).
-      const [{ supData }, firestoreData] = await Promise.all([
+      // Traemos también ejecData de Google Sheets, pero SOLO para usarlo
+      // como fuente de pendientes. La colección visitas_ejecutivos NO se
+      // sobrescribe (la fuente de verdad sigue siendo Firestore).
+      const [sheetsData, firestoreData] = await Promise.all([
         fetchFromGoogleSheets(),
         fetchVisitasData(),
       ]);
+      const supData = sheetsData.supData;
+      const ejecDataFromSheets = sheetsData.ejecData;
       const ejecData = firestoreData.ejecData;
       let ejecPendientesData = firestoreData.ejecPendientesData;
 
-      // Sembrar / re-sembrar pendientes:
-      // - Si la colección está vacía → primera siembra.
-      // - Si el conteo guardado es < 90% del esperado → re-sembrar (corrige
-      //   colisiones de IDs anteriores que descartaron registros sin FECHA).
-      if (ejecData.length > 0) {
-        const seed = ejecData.filter(r => isProgrammed(r.STATUS) && !String(r.MES || '').trim());
+      // Sembrar / re-sembrar pendientes desde Google Sheets:
+      // - Filtro: PROGRAMADO + MES vacío.
+      // - Re-sembramos si la colección está vacía o si tiene <90% del esperado
+      //   (corrige colisiones de IDs anteriores que descartaron registros).
+      if (ejecDataFromSheets.length > 0) {
+        const seed = ejecDataFromSheets.filter(
+          r => isProgrammed(r.STATUS) && !String(r.MES || '').trim()
+        );
+        console.log(`[Pendientes] Sheets: ${ejecDataFromSheets.length} ejec → ${seed.length} pendientes (PROGRAMADO + sin MES). En Firestore: ${ejecPendientesData.length}`);
         const needsReseed =
           ejecPendientesData.length === 0 ||
           (seed.length > 0 && ejecPendientesData.length < seed.length * 0.9);

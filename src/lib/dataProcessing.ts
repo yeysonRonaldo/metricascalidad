@@ -223,6 +223,9 @@ export function convertDatesAndFill(data: Record<string, unknown>[]): DataRow[] 
 export function filterByYearMonth(data: DataRow[], year: string, month: string): DataRow[] {
   return data.filter(row => {
     const { year: rowYear, month: rowMonth } = getDateParts(row);
+    // Filas sin AÑO ni MES (ej. metas pendientes sin programar fecha):
+    // pasan siempre, no se descartan por filtros de periodo.
+    if (!rowYear && !rowMonth) return true;
     // Algunas filas del Excel de Ejecutivos traen MES manual (ej. MARZO), pero no
     // traen FECHA/AÑO. Si se filtra por 2026 + Marzo, esas filas sí deben contar
     // porque el MES explícito es el periodo de gestión usado en el dashboard.
