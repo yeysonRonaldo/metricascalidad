@@ -160,14 +160,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const ejecData = firestoreData.ejecData;
       let ejecPendientesData = firestoreData.ejecPendientesData;
 
-      // Primera carga: si la colección de pendientes está vacía,
-      // sembrarla con los registros PROGRAMADOS sin MES tomados de Ejecutivos.
-      if (ejecPendientesData.length === 0 && ejecData.length > 0) {
+      // Sembrar / re-sembrar pendientes:
+      // - Si la colección está vacía → primera siembra.
+      // - Si el conteo guardado es < 90% del esperado → re-sembrar (corrige
+      //   colisiones de IDs anteriores que descartaron registros sin FECHA).
+      if (ejecData.length > 0) {
         const seed = ejecData.filter(r => isProgrammed(r.STATUS) && !String(r.MES || '').trim());
-        if (seed.length > 0) {
+        const needsReseed =
+          ejecPendientesData.length === 0 ||
+          (seed.length > 0 && ejecPendientesData.length < seed.length * 0.9);
+
+        if (needsReseed && seed.length > 0) {
           ejecPendientesData = seed;
-          saveEjecPendientesData(seed)
-            .then(() => console.log(`Ejecutivos pendientes sembrados: ${seed.length} registros ✅`))
+          saveEjecPendientesData(seed, true)
+            .then(() => console.log(`Ejecutivos pendientes (re)sembrados: ${seed.length} registros ✅`))
             .catch(err => console.error('Error sembrando pendientes:', err));
         }
       }

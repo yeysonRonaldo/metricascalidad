@@ -23,9 +23,21 @@ function generateRowId(row: DataRow, type: DataType): string {
   const cliente = (row.CLIENTE || '').toString().trim().toUpperCase();
   const sucursal = (row.SUCURSAL || '').toString().trim().toUpperCase();
   const status = (row.STATUS || '').toString().trim().toUpperCase();
-  // Create a deterministic key
-  const raw = `${fecha}|${person}|${cliente}|${sucursal}|${status}`;
-  // Simple hash to create a valid Firestore doc ID
+
+  let raw: string;
+  if (type === 'ejec_pend') {
+    // Para pendientes muchos registros no tienen FECHA ni MES, así que
+    // ampliamos la clave con más campos para evitar colisiones.
+    const mes = (row.MES || '').toString().trim().toUpperCase();
+    const tipo = (row['TIPO DE VISITA'] || '').toString().trim().toUpperCase();
+    const obs = (row.OBSERVACIONES || '').toString().trim().toUpperCase();
+    const ano = (row.AÑO || '').toString().trim();
+    raw = `${fecha}|${ano}|${mes}|${person}|${cliente}|${sucursal}|${status}|${tipo}|${obs}`;
+  } else {
+    raw = `${fecha}|${person}|${cliente}|${sucursal}|${status}`;
+  }
+
+  // Simple hash
   let hash = 0;
   for (let i = 0; i < raw.length; i++) {
     const char = raw.charCodeAt(i);
@@ -86,14 +98,38 @@ async function saveToCollection(collectionName: string, data: DataRow[], type: D
     existing.forEach((d) => existingIds.add(d.id));
   }
 
+  // Track IDs used within this batch run (incluye los existentes)
+  const usedIds = new Set<string>(existingIds);
+
   let batch = writeBatch(db);
   let writeCount = 0;
 
   for (const row of data) {
-    const docId = generateRowId(row, type);
-    if (existingIds.has(docId)) continue;
+    let docId = generateRowId(row, type);
+
+    // Para ejec_pend: si la clave ya existe (en BD o en este lote),
+    // generar variantes únicas con sufijo numérico para no perder registros.
+    if (type === 'ejec_pend' && usedIds.has(docId)) {
+      let suffix = 1;
+      let candidate = `${docId}_${suffix}`;
+      while (usedIds.has(candidate)) {
+        suffix++;
+        candidate = `${docId}_${suffix}`;
+      }
+      docId = candidate;
+    } else if (type !== 'ejec_pend' && existingIds.has(docId)) {
+      // Comportamiento original: dedup por clave para sup/ejec
+      continue;
+    }
+
+    usedIds.add(docId);
+
     const rowCopy = { ...row };
     delete rowCopy._ROLE;
+    // Guardamos el docId en el propio documento para que update/delete usen exactamente este ID.
+    if (type === 'ejec_pend') {
+      (rowCopy as Record<string, unknown>)._docId = docId;
+    }
     const ref = doc(collection(db, collectionName), docId);
     batch.set(ref, rowCopy);
     writeCount++;
@@ -118,6 +154,13 @@ export async function saveEjecPendientesData(data: DataRow[], replace = false): 
   await saveToCollection(COLLECTION_EJEC_PENDIENTES, data, 'ejec_pend', replace);
 }
 
+function resolveDocId(row: DataRow, type: DataType): string {
+  // Si el row trae un _docId persistido (caso ejec_pend con sufijo), úsalo.
+  const stored = (row as Record<string, unknown>)._docId;
+  if (typeof stored === 'string' && stored.length > 0) return stored;
+  return generateRowId(row, type);
+}
+
 export async function updateRowInFirestore(
   type: DataType,
   oldRow: DataRow,
@@ -125,10 +168,22 @@ export async function updateRowInFirestore(
   newValue: string
 ): Promise<void> {
   const collectionName = collectionFor(type);
-  const oldDocId = generateRowId(oldRow, type);
+  const oldDocId = resolveDocId(oldRow, type);
 
   const updatedRow = { ...oldRow, [field]: newValue };
   delete updatedRow._ROLE;
+
+  // Para ejec_pend: el _docId se mantiene estable aunque cambie STATUS,
+  // así que NO regeneramos el ID — solo actualizamos in place.
+  if (type === 'ejec_pend') {
+    (updatedRow as Record<string, unknown>)._docId = oldDocId;
+    try {
+      await updateDoc(doc(db, collectionName, oldDocId), { [field]: newValue });
+    } catch {
+      await setDoc(doc(db, collectionName, oldDocId), updatedRow);
+    }
+    return;
+  }
 
   const keyFields = ['FECHA', 'SUPERVISOR', 'EJECUTIVO', 'CLIENTE', 'SUCURSAL', 'STATUS'];
   if (keyFields.includes(field)) {
@@ -146,7 +201,7 @@ export async function updateRowInFirestore(
 
 export async function deleteRowFromFirestore(type: DataType, row: DataRow): Promise<void> {
   const collectionName = collectionFor(type);
-  const docId = generateRowId(row, type);
+  const docId = resolveDocId(row, type);
   await deleteDoc(doc(db, collectionName, docId));
 }
 
@@ -156,7 +211,7 @@ export async function deleteRowsBatchFromFirestore(type: DataType, rows: DataRow
   let batch = writeBatch(db);
   let count = 0;
   for (const row of rows) {
-    const docId = generateRowId(row, type);
+    const docId = resolveDocId(row, type);
     batch.delete(doc(db, collectionName, docId));
     count++;
     if (count % 500 === 0) {
