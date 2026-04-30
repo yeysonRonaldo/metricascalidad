@@ -504,24 +504,21 @@ export default function DataTableSection() {
                     if (isEditing && col.type === 'select') {
                       return (
                         <td key={col.key} className="px-2 py-1">
-                          <div className="flex items-center gap-1">
-                            <Select value={editValue} onValueChange={v => setEditValue(v)}>
-                              <SelectTrigger className="h-8 text-xs w-[150px]">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {statusOptionsForType.map(s => (
-                                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <button onClick={saveEdit} disabled={saving === i} className="p-1 rounded hover:bg-green-100 text-green-600">
-                              <Check className="w-4 h-4" />
-                            </button>
-                            <button onClick={cancelEdit} className="p-1 rounded hover:bg-red-100 text-red-600">
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
+                          <Select
+                            value={editValue}
+                            onValueChange={v => { setEditValue(v); handleStatusChange(i, v); }}
+                            open
+                            onOpenChange={(open) => { if (!open) cancelEdit(); }}
+                          >
+                            <SelectTrigger className="h-8 text-xs w-[150px]" disabled={saving === i}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {statusOptionsForType.map(s => (
+                                <SelectItem key={s} value={s}>{s}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </td>
                       );
                     }
