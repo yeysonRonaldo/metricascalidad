@@ -38,8 +38,12 @@ export default function DashboardSection({ type }: DashboardSectionProps) {
     if (s.realized > topCount) { topCount = s.realized; topPerson = name; }
   }
 
-  const sectionTitle = type === 'SUPERVISOR' ? 'Rendimiento de Supervisores' : 'Rendimiento de Ejecutivos';
-  const icon = type === 'SUPERVISOR' ? '👔' : '💼';
+  const sectionTitle = type === 'SUPERVISOR'
+    ? 'Rendimiento de Supervisores'
+    : type === 'EJECUTIVO'
+    ? 'Rendimiento de Ejecutivos'
+    : 'Ejecutivos - Metas Pendientes (sin mes)';
+  const icon = type === 'SUPERVISOR' ? '👔' : type === 'EJECUTIVO' ? '💼' : '📋';
 
   const handleExportPdf = async () => {
     if (!containerRef.current) return;
