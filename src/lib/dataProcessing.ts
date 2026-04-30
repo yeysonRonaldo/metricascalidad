@@ -235,8 +235,8 @@ export function filterByYearMonth(
       if (strict && (year !== 'all' || month !== 'all')) return false;
       return true;
     }
-    const yearMatch = year === 'all' || !rowYear || rowYear === year;
-    const monthMatch = month === 'all' || !rowMonth || rowMonth === month;
+    const yearMatch = year === 'all' || rowYear === year;
+    const monthMatch = month === 'all' || rowMonth === month;
     return yearMatch && monthMatch;
   });
 }
