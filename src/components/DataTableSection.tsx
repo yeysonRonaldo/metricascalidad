@@ -130,7 +130,7 @@ export default function DataTableSection() {
 
   const columns = isEjec
     ? [
-        { key: 'FECHA', label: 'Fecha', editable: false },
+        { key: 'FECHA', label: 'Fecha', editable: true, type: 'date' as const },
         { key: 'MES', label: 'Mes', editable: false },
         { key: personField, label: 'Ejecutivo', editable: false },
         { key: 'CLIENTE', label: 'Cliente', editable: false },
@@ -143,7 +143,7 @@ export default function DataTableSection() {
         { key: 'OBSERVACIONES', label: 'Observaciones', editable: false },
       ]
     : [
-        { key: 'FECHA', label: 'Fecha', editable: false },
+        { key: 'FECHA', label: 'Fecha', editable: true, type: 'date' as const },
         { key: 'MES', label: 'Mes', editable: true },
         { key: personField, label: 'Supervisor', editable: true },
         { key: 'CLIENTE', label: 'Cliente', editable: true },
