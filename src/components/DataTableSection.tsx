@@ -32,6 +32,7 @@ export default function DataTableSection() {
   const [mesFilter, setMesFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [dateField, setDateField] = useState<'FECHA' | 'FECHA ENVIADO'>('FECHA');
   const [editingCell, setEditingCell] = useState<{ rowIdx: number; field: string } | null>(null);
   const [editValue, setEditValue] = useState('');
   const [saving, setSaving] = useState<number | null>(null);
@@ -97,10 +98,11 @@ export default function DataTableSection() {
       data = data.filter(r => (r.MES || '').toString().toUpperCase().includes(q));
     }
 
-    // Date range filter
+    // Date range filter (FECHA o FECHA ENVIADO)
     if (dateFrom || dateTo) {
+      const field = dataType === 'ejec_pend' ? dateField : 'FECHA';
       data = data.filter(r => {
-        const fecha = (r.FECHA || '').toString();
+        const fecha = (r[field] || '').toString();
         if (!fecha) return false;
         const d = new Date(fecha);
         if (isNaN(d.getTime())) return false;
@@ -127,7 +129,7 @@ export default function DataTableSection() {
     }
 
     return data;
-  }, [rawData, yearFilter, monthFilter, search, statusFilter, nameFilter, mesFilter, dateFrom, dateTo, personField]);
+  }, [rawData, yearFilter, monthFilter, search, statusFilter, nameFilter, mesFilter, dateFrom, dateTo, dateField, dataType, personField]);
 
   const columns = isEjec
     ? [
@@ -399,6 +401,19 @@ export default function DataTableSection() {
             ))}
           </datalist>
         </div>
+
+        {/* Date field selector (solo Ejecutivos 2) */}
+        {dataType === 'ejec_pend' && (
+          <Select value={dateField} onValueChange={(v) => setDateField(v as 'FECHA' | 'FECHA ENVIADO')}>
+            <SelectTrigger className="h-8 text-xs w-[150px] bg-background">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="FECHA">Por Fecha</SelectItem>
+              <SelectItem value="FECHA ENVIADO">Por Fecha Enviado</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
 
         {/* Date from */}
         <Popover>
