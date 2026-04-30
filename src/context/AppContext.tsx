@@ -82,7 +82,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const name = file.name.toLowerCase();
 
     const processAndSave = (sup: DataRow[], ejec: DataRow[]) => {
-      processData(sup, ejec);
+      processData(sup, ejec, state.ejecPendientesData);
       // Save to Firestore in background
       const promises: Promise<void>[] = [];
       if (sup.length > 0) promises.push(saveSupData(sup));
