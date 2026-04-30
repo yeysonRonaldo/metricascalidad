@@ -137,6 +137,9 @@ export default function DataTableSection() {
         { key: 'CLIENTE', label: 'Cliente', editable: false },
         { key: 'SUCURSAL', label: 'Sucursal', editable: false },
         { key: 'STATUS', label: 'Status', editable: true, type: 'select' as const },
+        ...(dataType === 'ejec_pend'
+          ? [{ key: 'FECHA ENVIADO', label: 'Fecha Enviado', editable: true, type: 'date' as const }]
+          : []),
         { key: 'TIPO DE VISITA', label: 'Tipo de Visita', editable: false },
         { key: 'OBSERVACIONES', label: 'Observaciones', editable: false },
       ]
@@ -480,6 +483,41 @@ export default function DataTableSection() {
                       );
                     }
 
+                    if (isEditing && col.type === 'date') {
+                      const parsed = editValue ? new Date(editValue) : undefined;
+                      const valid = parsed && !isNaN(parsed.getTime()) ? parsed : undefined;
+                      return (
+                        <td key={col.key} className="px-2 py-1">
+                          <div className="flex items-center gap-1">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button variant="outline" className="h-8 text-xs w-[150px] justify-start">
+                                  <CalendarIcon className="w-3 h-3 mr-1" />
+                                  {valid ? format(valid, 'dd/MM/yyyy') : 'Elegir fecha'}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={valid}
+                                  onSelect={(d) => setEditValue(d ? format(d, 'yyyy-MM-dd') : '')}
+                                  locale={es}
+                                  initialFocus
+                                  className={cn("p-3 pointer-events-auto")}
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            <button onClick={saveEdit} disabled={saving === i} className="p-1 rounded hover:bg-green-100 text-green-600">
+                              <Check className="w-4 h-4" />
+                            </button>
+                            <button onClick={cancelEdit} className="p-1 rounded hover:bg-red-100 text-red-600">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      );
+                    }
+
                     if (isEditing) {
                       return (
                         <td key={col.key} className="px-2 py-1">
@@ -511,6 +549,12 @@ export default function DataTableSection() {
                       >
                         {col.key === 'STATUS' ? (
                           <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(val)}`}>{val}</span>
+                        ) : col.type === 'date' ? (
+                          (() => {
+                            if (!val) return <span className="text-muted-foreground italic text-xs">—</span>;
+                            const d = new Date(val);
+                            return !isNaN(d.getTime()) ? format(d, 'dd/MM/yyyy') : val;
+                          })()
                         ) : (
                           val
                         )}
