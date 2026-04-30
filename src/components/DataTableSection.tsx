@@ -224,7 +224,17 @@ export default function DataTableSection() {
 
     const targets: { idx: number; mes: string }[] = [];
     ejecPendientesData.forEach((r, idx) => {
-      const mes = normalizeMonth(r.MES);
+      let mes = normalizeMonth(r.MES);
+      // Si no hay MES, intentar derivarlo desde FECHA
+      if (!targetMonths.has(mes)) {
+        const d = parseDateValue(r.FECHA);
+        if (d) {
+          const m = d.getMonth(); // 0=ene, 1=feb, 2=mar
+          if (m === 0) mes = 'ENERO';
+          else if (m === 1) mes = 'FEBRERO';
+          else if (m === 2) mes = 'MARZO';
+        }
+      }
       if (!targetMonths.has(mes)) return;
       targets.push({ idx, mes });
     });
