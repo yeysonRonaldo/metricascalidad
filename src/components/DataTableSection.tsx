@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useAppContext } from '@/context/AppContext';
-import { filterByYearMonth, MONTH_NAMES, normalizeText, cleanString, normalizeMonth, parseDateValue } from '@/lib/dataProcessing';
+import { filterByYearMonth, MONTH_NAMES, normalizeText, cleanString, normalizeMonth, parseDateValue, isRealized } from '@/lib/dataProcessing';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
