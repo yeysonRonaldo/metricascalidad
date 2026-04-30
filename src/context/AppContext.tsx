@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import type { DataRow, TabName, TimeUnit } from '@/types/metrics';
+import type { DataRow, TabName } from '@/types/metrics';
 import { convertDatesAndFill, isRealized, isProgrammed } from '@/lib/dataProcessing';
 import { fetchVisitasData, saveSupData, saveEjecData, saveEjecPendientesData, updateRowInFirestore, deleteRowFromFirestore, deleteRowsBatchFromFirestore } from '@/lib/firestoreService';
 import { fetchFromGoogleSheets } from '@/lib/googleSheetsService';
