@@ -134,7 +134,7 @@ function parseExcelSerialDate(value: number): Date | null {
   return isNaN(asTimestamp.getTime()) ? null : asTimestamp;
 }
 
-function parseDateValue(fechaVal: unknown): Date | null {
+export function parseDateValue(fechaVal: unknown): Date | null {
   if (!fechaVal) return null;
 
   if (typeof fechaVal === 'object' && typeof (fechaVal as { toDate?: () => Date }).toDate === 'function') {
