@@ -230,13 +230,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const oldRow = state[dataKey][index];
     if (!oldRow) throw new Error('Row not found');
 
+    // Auto-set FECHA ENVIADO when status changes to ENVIADO in ejec_pend
+    const autoSetFechaEnviado =
+      type === 'ejec_pend' &&
+      field === 'STATUS' &&
+      value.toUpperCase() === 'ENVIADO' &&
+      !((oldRow['FECHA ENVIADO'] || '').toString().trim());
+    const today = new Date().toISOString().slice(0, 10);
+
     setState(s => {
       const newData = [...s[dataKey]];
       newData[index] = { ...newData[index], [field]: value };
+      if (autoSetFechaEnviado) {
+        newData[index] = { ...newData[index], 'FECHA ENVIADO': today };
+      }
       return { ...s, [dataKey]: newData };
     });
 
     await updateRowInFirestore(type, oldRow, field, value);
+    if (autoSetFechaEnviado) {
+      await updateRowInFirestore(type, { ...oldRow, [field]: value }, 'FECHA ENVIADO', today);
+    }
   }, [state.supData, state.ejecData, state.ejecPendientesData]);
 
   const deleteRow = useCallback(async (type: 'sup' | 'ejec' | 'ejec_pend', index: number) => {
