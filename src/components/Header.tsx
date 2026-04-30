@@ -32,6 +32,7 @@ export default function Header() {
     if (!hasData) return false;
     if (t.field === 'sup') return supData.length > 0;
     if (t.field === 'ejec') return ejecData.length > 0;
+    if (t.field === 'ejec_pend') return ejecPendientesData.length > 0;
     return true;
   });
 
