@@ -165,17 +165,20 @@ export default function DataTableSection() {
     setEditValue('');
   };
 
-  const saveEdit = useCallback(async () => {
-    if (!editingCell) return;
-    const row = filtered[editingCell.rowIdx];
+  const saveEdit = useCallback(async (overrideValue?: string, rowIdxOverride?: number) => {
+    const cell = editingCell ?? (rowIdxOverride !== undefined ? { rowIdx: rowIdxOverride, field: 'STATUS' } : null);
+    if (!cell) return;
+    const row = filtered[cell.rowIdx];
     if (!row) return;
 
     const originalIdx = rawData.indexOf(row);
     if (originalIdx === -1) return;
 
-    setSaving(editingCell.rowIdx);
+    const valueToSave = overrideValue !== undefined ? overrideValue : editValue;
+
+    setSaving(cell.rowIdx);
     try {
-      await updateRow(dataType, originalIdx, editingCell.field, editValue);
+      await updateRow(dataType, originalIdx, cell.field, valueToSave);
       toast.success('Registro actualizado ✅');
     } catch (err) {
       console.error(err);
@@ -186,6 +189,26 @@ export default function DataTableSection() {
       setEditValue('');
     }
   }, [editingCell, editValue, filtered, rawData, dataType, updateRow]);
+
+  // Cambio directo de STATUS sin necesidad de confirmar (clic en celda → Select → guarda)
+  const handleStatusChange = useCallback(async (rowIdx: number, newValue: string) => {
+    const row = filtered[rowIdx];
+    if (!row) return;
+    const originalIdx = rawData.indexOf(row);
+    if (originalIdx === -1) return;
+    setSaving(rowIdx);
+    try {
+      await updateRow(dataType, originalIdx, 'STATUS', newValue);
+      toast.success('Status actualizado ✅');
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al guardar');
+    } finally {
+      setSaving(null);
+      setEditingCell(null);
+      setEditValue('');
+    }
+  }, [filtered, rawData, dataType, updateRow]);
 
   const handleDelete = useCallback(async (rowIdx: number) => {
     const row = filtered[rowIdx];
