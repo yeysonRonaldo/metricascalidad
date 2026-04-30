@@ -23,9 +23,21 @@ function generateRowId(row: DataRow, type: DataType): string {
   const cliente = (row.CLIENTE || '').toString().trim().toUpperCase();
   const sucursal = (row.SUCURSAL || '').toString().trim().toUpperCase();
   const status = (row.STATUS || '').toString().trim().toUpperCase();
-  // Create a deterministic key
-  const raw = `${fecha}|${person}|${cliente}|${sucursal}|${status}`;
-  // Simple hash to create a valid Firestore doc ID
+
+  let raw: string;
+  if (type === 'ejec_pend') {
+    // Para pendientes muchos registros no tienen FECHA ni MES, así que
+    // ampliamos la clave con más campos para evitar colisiones.
+    const mes = (row.MES || '').toString().trim().toUpperCase();
+    const tipo = (row['TIPO DE VISITA'] || '').toString().trim().toUpperCase();
+    const obs = (row.OBSERVACIONES || '').toString().trim().toUpperCase();
+    const ano = (row.AÑO || '').toString().trim();
+    raw = `${fecha}|${ano}|${mes}|${person}|${cliente}|${sucursal}|${status}|${tipo}|${obs}`;
+  } else {
+    raw = `${fecha}|${person}|${cliente}|${sucursal}|${status}`;
+  }
+
+  // Simple hash
   let hash = 0;
   for (let i = 0; i < raw.length; i++) {
     const char = raw.charCodeAt(i);
