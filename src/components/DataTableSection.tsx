@@ -547,7 +547,7 @@ export default function DataTableSection() {
                                 />
                               </PopoverContent>
                             </Popover>
-                            <button onClick={saveEdit} disabled={saving === i} className="p-1 rounded hover:bg-green-100 text-green-600">
+                            <button onClick={() => saveEdit()} disabled={saving === i} className="p-1 rounded hover:bg-green-100 text-green-600">
                               <Check className="w-4 h-4" />
                             </button>
                             <button onClick={cancelEdit} className="p-1 rounded hover:bg-red-100 text-red-600">
@@ -569,7 +569,7 @@ export default function DataTableSection() {
                               className="h-8 text-xs"
                               autoFocus
                             />
-                            <button onClick={saveEdit} disabled={saving === i} className="p-1 rounded hover:bg-green-100 text-green-600">
+                            <button onClick={() => saveEdit()} disabled={saving === i} className="p-1 rounded hover:bg-green-100 text-green-600">
                               <Check className="w-4 h-4" />
                             </button>
                             <button onClick={cancelEdit} className="p-1 rounded hover:bg-red-100 text-red-600">
