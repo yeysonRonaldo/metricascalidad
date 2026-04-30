@@ -192,11 +192,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const ejecRealized = ejecData.filter(r => isRealized(r.STATUS)).length;
       processData(supData, ejecData, ejecPendientesData);
       toast.success(`Sincronizado: ${supData.length} sup (${supRealized} realiz), ${ejecData.length} ejec (${ejecRealized} realiz), ${ejecPendientesData.length} pendientes`);
-      // Guardar SOLO Supervisores en Firestore.
+      // Guardar Supervisores y Ejecutivos (normal) en Firestore.
+      // visitas_ejecutivos_pendientes NO se toca aquí.
       if (supData.length > 0) {
         saveSupData(supData, true)
           .then(() => console.log('Supervisores guardados en Firestore ✅'))
           .catch(err => console.error('Error guardando supervisores:', err));
+      }
+      if (ejecDataFromSheets.length > 0) {
+        saveEjecData(ejecDataFromSheets, true)
+          .then(() => console.log('Ejecutivos guardados en Firestore ✅'))
+          .catch(err => console.error('Error guardando ejecutivos:', err));
       }
     } catch (err) {
       console.error('Error syncing from Google Sheets:', err);
