@@ -549,6 +549,12 @@ export default function DataTableSection() {
                       >
                         {col.key === 'STATUS' ? (
                           <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(val)}`}>{val}</span>
+                        ) : col.type === 'date' ? (
+                          (() => {
+                            if (!val) return <span className="text-muted-foreground italic text-xs">—</span>;
+                            const d = new Date(val);
+                            return !isNaN(d.getTime()) ? format(d, 'dd/MM/yyyy') : val;
+                          })()
                         ) : (
                           val
                         )}
