@@ -15,7 +15,7 @@ function collectionFor(type: DataType): string {
   return COLLECTION_EJEC_PENDIENTES;
 }
 
-function generateRowId(row: DataRow, type: 'sup' | 'ejec'): string {
+function generateRowId(row: DataRow, type: DataType): string {
   const fecha = (row.FECHA || '').toString().trim();
   const person = type === 'sup'
     ? (row.SUPERVISOR || '').toString().trim().toUpperCase()
