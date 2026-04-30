@@ -35,10 +35,11 @@ function generateRowId(row: DataRow, type: DataType): string {
   return `${Math.abs(hash).toString(36)}_${raw.replace(/[^a-zA-Z0-9|]/g, '').slice(0, 60)}`;
 }
 
-export async function fetchVisitasData(): Promise<{ supData: DataRow[]; ejecData: DataRow[] }> {
-  const [supSnap, ejecSnap] = await Promise.all([
+export async function fetchVisitasData(): Promise<{ supData: DataRow[]; ejecData: DataRow[]; ejecPendientesData: DataRow[] }> {
+  const [supSnap, ejecSnap, ejecPendSnap] = await Promise.all([
     getDocs(collection(db, COLLECTION_SUP)),
     getDocs(collection(db, COLLECTION_EJEC)),
+    getDocs(collection(db, COLLECTION_EJEC_PENDIENTES)),
   ]);
 
   const rawSup: Record<string, unknown>[] = [];
@@ -47,10 +48,14 @@ export async function fetchVisitasData(): Promise<{ supData: DataRow[]; ejecData
   const rawEjec: Record<string, unknown>[] = [];
   ejecSnap.forEach((d) => rawEjec.push({ id: d.id, ...d.data() }));
 
+  const rawEjecPend: Record<string, unknown>[] = [];
+  ejecPendSnap.forEach((d) => rawEjecPend.push({ id: d.id, ...d.data() }));
+
   const supData = convertDatesAndFill(rawSup);
   const ejecData = convertDatesAndFill(rawEjec);
+  const ejecPendientesData = convertDatesAndFill(rawEjecPend);
 
-  return { supData, ejecData };
+  return { supData, ejecData, ejecPendientesData };
 }
 
 async function clearCollection(collectionName: string): Promise<void> {
