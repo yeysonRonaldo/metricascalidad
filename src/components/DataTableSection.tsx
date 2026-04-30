@@ -404,13 +404,21 @@ export default function DataTableSection() {
 
         {/* Date field selector (solo Ejecutivos 2) */}
         {dataType === 'ejec_pend' && (
-          <Select value={dateField} onValueChange={(v) => setDateField(v as 'FECHA' | 'FECHA ENVIADO')}>
-            <SelectTrigger className="h-8 text-xs w-[150px] bg-background">
+          <Select
+            value={dateField}
+            onValueChange={(v) => {
+              setDateField(v as 'FECHA' | 'FECHA ENVIADO');
+              // Limpiamos el rango al cambiar de campo para evitar resultados confusos
+              setDateFrom(undefined);
+              setDateTo(undefined);
+            }}
+          >
+            <SelectTrigger className="h-8 text-xs w-[160px] bg-background">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="FECHA">Por Fecha</SelectItem>
-              <SelectItem value="FECHA ENVIADO">Por Fecha Enviado</SelectItem>
+              <SelectItem value="FECHA">Filtrar por Fecha</SelectItem>
+              <SelectItem value="FECHA ENVIADO">Filtrar por Fecha Enviado</SelectItem>
             </SelectContent>
           </Select>
         )}
