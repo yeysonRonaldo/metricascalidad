@@ -232,11 +232,13 @@ export function filterByYearMonth(
     // Modo strict (Ejecutivos 2): si el usuario filtra por un periodo específico,
     // los registros sin AÑO ni MES NO pasan (evita inflar metas en cada mes).
     if (!rowYear && !rowMonth) {
+      // Modo strict (Ejecutivos 2): si el usuario filtra por un periodo específico,
+      // los registros sin AÑO ni MES NO pasan (evita inflar metas en cada mes).
       if (strict && (year !== 'all' || month !== 'all')) return false;
       return true;
     }
-    const yearMatch = year === 'all' || rowYear === year || (!rowYear && !!rowMonth);
-    const monthMatch = month === 'all' || rowMonth === month;
+    const yearMatch = year === 'all' || !rowYear || rowYear === year;
+    const monthMatch = month === 'all' || !rowMonth || rowMonth === month;
     return yearMatch && monthMatch;
   });
 }
