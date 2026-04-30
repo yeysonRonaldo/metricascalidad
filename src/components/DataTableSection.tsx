@@ -16,7 +16,7 @@ import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { DataRow } from '@/types/metrics';
 
-type DataType = 'sup' | 'ejec';
+type DataType = 'sup' | 'ejec' | 'ejec_pend';
 
 const STATUS_OPTIONS = ['REALIZADO', 'PROGRAMADO', 'CANCELADO', 'REPROGRAMADO', 'NO REALIZADO', 'PENDIENTE'];
 const EJEC_STATUS_OPTIONS = ['PROGRAMADO', 'ENVIADO'];
