@@ -98,10 +98,11 @@ export default function DataTableSection() {
       data = data.filter(r => (r.MES || '').toString().toUpperCase().includes(q));
     }
 
-    // Date range filter
+    // Date range filter (FECHA o FECHA ENVIADO)
     if (dateFrom || dateTo) {
+      const field = dataType === 'ejec_pend' ? dateField : 'FECHA';
       data = data.filter(r => {
-        const fecha = (r.FECHA || '').toString();
+        const fecha = (r[field] || '').toString();
         if (!fecha) return false;
         const d = new Date(fecha);
         if (isNaN(d.getTime())) return false;
