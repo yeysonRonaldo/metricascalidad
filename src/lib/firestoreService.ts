@@ -154,6 +154,13 @@ export async function saveEjecPendientesData(data: DataRow[], replace = false): 
   await saveToCollection(COLLECTION_EJEC_PENDIENTES, data, 'ejec_pend', replace);
 }
 
+function resolveDocId(row: DataRow, type: DataType): string {
+  // Si el row trae un _docId persistido (caso ejec_pend con sufijo), úsalo.
+  const stored = (row as Record<string, unknown>)._docId;
+  if (typeof stored === 'string' && stored.length > 0) return stored;
+  return generateRowId(row, type);
+}
+
 export async function updateRowInFirestore(
   type: DataType,
   oldRow: DataRow,
@@ -161,10 +168,22 @@ export async function updateRowInFirestore(
   newValue: string
 ): Promise<void> {
   const collectionName = collectionFor(type);
-  const oldDocId = generateRowId(oldRow, type);
+  const oldDocId = resolveDocId(oldRow, type);
 
   const updatedRow = { ...oldRow, [field]: newValue };
   delete updatedRow._ROLE;
+
+  // Para ejec_pend: el _docId se mantiene estable aunque cambie STATUS,
+  // así que NO regeneramos el ID — solo actualizamos in place.
+  if (type === 'ejec_pend') {
+    (updatedRow as Record<string, unknown>)._docId = oldDocId;
+    try {
+      await updateDoc(doc(db, collectionName, oldDocId), { [field]: newValue });
+    } catch {
+      await setDoc(doc(db, collectionName, oldDocId), updatedRow);
+    }
+    return;
+  }
 
   const keyFields = ['FECHA', 'SUPERVISOR', 'EJECUTIVO', 'CLIENTE', 'SUCURSAL', 'STATUS'];
   if (keyFields.includes(field)) {
@@ -182,7 +201,7 @@ export async function updateRowInFirestore(
 
 export async function deleteRowFromFirestore(type: DataType, row: DataRow): Promise<void> {
   const collectionName = collectionFor(type);
-  const docId = generateRowId(row, type);
+  const docId = resolveDocId(row, type);
   await deleteDoc(doc(db, collectionName, docId));
 }
 
@@ -192,7 +211,7 @@ export async function deleteRowsBatchFromFirestore(type: DataType, rows: DataRow
   let batch = writeBatch(db);
   let count = 0;
   for (const row of rows) {
-    const docId = generateRowId(row, type);
+    const docId = resolveDocId(row, type);
     batch.delete(doc(db, collectionName, docId));
     count++;
     if (count % 500 === 0) {
