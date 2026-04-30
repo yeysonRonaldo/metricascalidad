@@ -210,6 +210,59 @@ export default function DataTableSection() {
     }
   }, [filtered, rawData, dataType, updateRow]);
 
+  const [backfilling, setBackfilling] = useState(false);
+
+  // Backfill Ene/Feb/Mar: marca todos los pendientes de esos meses como ENVIADO
+  // y les asigna FECHA ENVIADO aleatoria dentro del mes (que cuadre).
+  const handleBackfillQ1 = useCallback(async () => {
+    if (dataType !== 'ejec_pend') return;
+    if (!window.confirm('Esto marcará TODOS los registros de enero, febrero y marzo como ENVIADO con fechas aleatorias dentro de cada mes. ¿Continuar?')) return;
+
+    const targetMonths = new Set(['ENERO', 'FEBRERO', 'MARZO']);
+    const monthIndex: Record<string, number> = { ENERO: 0, FEBRERO: 1, MARZO: 2 };
+    const daysInMonth = (year: number, monthIdx: number) => new Date(year, monthIdx + 1, 0).getDate();
+
+    const targets: { idx: number; mes: string }[] = [];
+    ejecPendientesData.forEach((r, idx) => {
+      const mes = normalizeMonth(r.MES);
+      if (!targetMonths.has(mes)) return;
+      targets.push({ idx, mes });
+    });
+
+    if (targets.length === 0) {
+      toast.info('No hay registros de enero/febrero/marzo');
+      return;
+    }
+
+    setBackfilling(true);
+    let ok = 0;
+    let fail = 0;
+    try {
+      for (const { idx, mes } of targets) {
+        const row = ejecPendientesData[idx];
+        if (!row) continue;
+        const yearStr = (row.AÑO || '').toString().trim() || yearFilter;
+        const year = parseInt(yearStr, 10) || new Date().getFullYear();
+        const mIdx = monthIndex[mes];
+        const day = 1 + Math.floor(Math.random() * daysInMonth(year, mIdx));
+        const dd = String(day).padStart(2, '0');
+        const mm = String(mIdx + 1).padStart(2, '0');
+        const fechaEnviado = `${year}-${mm}-${dd}`;
+        try {
+          await updateRow('ejec_pend', idx, 'STATUS', 'ENVIADO');
+          await updateRow('ejec_pend', idx, 'FECHA ENVIADO', fechaEnviado);
+          ok++;
+        } catch (e) {
+          console.error('Backfill error en row', idx, e);
+          fail++;
+        }
+      }
+      toast.success(`Backfill listo: ${ok} actualizados${fail ? `, ${fail} fallaron` : ''}`);
+    } finally {
+      setBackfilling(false);
+    }
+  }, [dataType, ejecPendientesData, yearFilter, updateRow]);
+
   const handleDelete = useCallback(async (rowIdx: number) => {
     const row = filtered[rowIdx];
     if (!row) return;
