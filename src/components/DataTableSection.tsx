@@ -137,6 +137,9 @@ export default function DataTableSection() {
         { key: 'CLIENTE', label: 'Cliente', editable: false },
         { key: 'SUCURSAL', label: 'Sucursal', editable: false },
         { key: 'STATUS', label: 'Status', editable: true, type: 'select' as const },
+        ...(dataType === 'ejec_pend'
+          ? [{ key: 'FECHA ENVIADO', label: 'Fecha Enviado', editable: true, type: 'date' as const }]
+          : []),
         { key: 'TIPO DE VISITA', label: 'Tipo de Visita', editable: false },
         { key: 'OBSERVACIONES', label: 'Observaciones', editable: false },
       ]
