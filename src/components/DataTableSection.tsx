@@ -496,6 +496,19 @@ export default function DataTableSection() {
           </Select>
         )}
 
+        {dataType === 'ejec_pend' && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={handleBackfillQ1}
+            disabled={backfilling}
+            title="Marca Ene/Feb/Mar como ENVIADO con fechas aleatorias"
+          >
+            {backfilling ? 'Procesando...' : 'Backfill Ene–Mar'}
+          </Button>
+        )}
+
         {/* Date from */}
         <Popover>
           <PopoverTrigger asChild>
