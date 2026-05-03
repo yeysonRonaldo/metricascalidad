@@ -6,6 +6,13 @@ import type { DataRow } from "@/types/metrics";
 const COLLECTION_SUP = "visitas_supervisores";
 const COLLECTION_EJEC = "visitas_ejecutivos";
 const COLLECTION_EJEC_PENDIENTES = "visitas_ejecutivos_pendientes";
+const COLLECTION_USERS = "visitas_usuarios";
+
+export interface UserRow {
+  id?: string;
+  nombre: string;
+  rol: 'SUPERVISOR' | 'EJECUTIVO';
+}
 
 type DataType = 'sup' | 'ejec' | 'ejec_pend';
 
@@ -221,4 +228,40 @@ export async function deleteRowsBatchFromFirestore(type: DataType, rows: DataRow
   }
   if (count % 500 !== 0) await batch.commit();
   console.log(`Firestore [${collectionName}]: ${count} documentos eliminados (batch)`);
+}
+
+export async function addRecordToFirestore(type: DataType, row: DataRow): Promise<string> {
+  const collectionName = collectionFor(type);
+  let docId = generateRowId(row, type);
+
+  if (type === 'ejec_pend') {
+    // Basic collision avoidance for single adds
+    docId = `${docId}_${Date.now()}`;
+  }
+
+  const rowCopy = { ...row };
+  delete rowCopy._ROLE;
+  if (type === 'ejec_pend') {
+    (rowCopy as Record<string, unknown>)._docId = docId;
+  }
+  
+  await setDoc(doc(db, collectionName, docId), rowCopy);
+  return docId;
+}
+
+export async function fetchUsersData(): Promise<UserRow[]> {
+  const snap = await getDocs(collection(db, COLLECTION_USERS));
+  const users: UserRow[] = [];
+  snap.forEach(d => users.push({ id: d.id, ...d.data() } as UserRow));
+  return users;
+}
+
+export async function saveUserToFirestore(user: Omit<UserRow, 'id'>): Promise<string> {
+  const ref = doc(collection(db, COLLECTION_USERS));
+  await setDoc(ref, user);
+  return ref.id;
+}
+
+export async function deleteUserFromFirestore(id: string): Promise<void> {
+  await deleteDoc(doc(db, COLLECTION_USERS, id));
 }

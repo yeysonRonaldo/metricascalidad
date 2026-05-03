@@ -2,17 +2,18 @@ import React, { useRef, useState } from 'react';
 import { useAppContext } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
 import { getYears, MONTH_NAMES } from '@/lib/dataProcessing';
-import { FileSpreadsheet, BarChart3, Briefcase, Scale, ListChecks, LogOut, RefreshCw, UserPlus, Database, ClipboardList } from 'lucide-react';
+import { FileSpreadsheet, BarChart3, Briefcase, Scale, ListChecks, LogOut, RefreshCw, UserPlus, Database, ClipboardList, ShieldAlert } from 'lucide-react';
 import type { TabName } from '@/types/metrics';
 import AddUserDialog from '@/components/AddUserDialog';
 
-const tabs: { id: TabName; label: string; icon: React.ReactNode; field: 'sup' | 'ejec' | 'ejec_pend' | 'both' }[] = [
+const tabs: { id: TabName; label: string; icon: React.ReactNode; field: 'sup' | 'ejec' | 'ejec_pend' | 'both' | 'admin' }[] = [
   { id: 'dashboard', label: 'Supervisores', icon: <BarChart3 className="w-4 h-4" />, field: 'sup' },
   { id: 'ejecutivos', label: 'Ejecutivos', icon: <Briefcase className="w-4 h-4" />, field: 'ejec' },
   { id: 'ejecutivos2', label: 'Ejecutivos 2', icon: <ClipboardList className="w-4 h-4" />, field: 'ejec_pend' },
   { id: 'balance', label: 'Balance', icon: <Scale className="w-4 h-4" />, field: 'both' },
   { id: 'report', label: 'Lista', icon: <ListChecks className="w-4 h-4" />, field: 'both' },
   { id: 'datos', label: 'Base de Datos', icon: <Database className="w-4 h-4" />, field: 'both' },
+  { id: 'admin', label: 'Admin', icon: <ShieldAlert className="w-4 h-4" />, field: 'admin' },
 ];
 
 export default function Header() {
@@ -29,7 +30,7 @@ export default function Header() {
   };
 
   const visibleTabs = tabs.filter(t => {
-    if (!hasData) return false;
+    if (!hasData && t.field !== 'admin') return false;
     if (t.field === 'sup') return supData.length > 0;
     if (t.field === 'ejec') return ejecData.length > 0;
     if (t.field === 'ejec_pend') return ejecPendientesData.length > 0;
@@ -77,16 +78,16 @@ export default function Header() {
           </div>
 
           {/* Bottom row: Tabs + Filters */}
-          {hasData && (
-            <div className="flex items-center justify-between gap-3 mt-2">
-              <div className="flex space-x-0.5 bg-primary-foreground/10 p-0.5 rounded-lg">
-                {visibleTabs.map(t => (
-                  <button key={t.id} onClick={() => setActiveTab(t.id)} className={`nav-tab ${activeTab === t.id ? 'active-tab' : ''}`}>
-                    {t.icon}
-                    <span className="hidden md:inline ml-1.5 text-xs">{t.label}</span>
-                  </button>
-                ))}
-              </div>
+          <div className="flex items-center justify-between gap-3 mt-2">
+            <div className="flex space-x-0.5 bg-primary-foreground/10 p-0.5 rounded-lg">
+              {visibleTabs.map(t => (
+                <button key={t.id} onClick={() => setActiveTab(t.id)} className={`nav-tab ${activeTab === t.id ? 'active-tab' : ''}`}>
+                  {t.icon}
+                  <span className="hidden md:inline ml-1.5 text-xs">{t.label}</span>
+                </button>
+              ))}
+            </div>
+            {hasData && (
               <div className="flex gap-1.5">
                 <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className="bg-card text-foreground border border-primary-foreground/20 rounded-lg px-2 py-1 text-xs focus:outline-none cursor-pointer shadow-sm">
                   <option value="all">Todos los años</option>
@@ -97,8 +98,8 @@ export default function Header() {
                   {MONTH_NAMES.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </nav>
 

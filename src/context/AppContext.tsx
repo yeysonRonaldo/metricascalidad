@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { DataRow, TabName } from '@/types/metrics';
-import { convertDatesAndFill, isRealized, isProgrammed } from '@/lib/dataProcessing';
-import { fetchVisitasData, saveSupData, saveEjecData, saveEjecPendientesData, updateRowInFirestore, deleteRowFromFirestore, deleteRowsBatchFromFirestore } from '@/lib/firestoreService';
+import { convertDatesAndFill, isRealized, isProgrammed, parseDateValue } from '@/lib/dataProcessing';
+import { fetchVisitasData, saveSupData, saveEjecData, saveEjecPendientesData, updateRowInFirestore, deleteRowFromFirestore, deleteRowsBatchFromFirestore, fetchUsersData, saveUserToFirestore, deleteUserFromFirestore, addRecordToFirestore, type UserRow } from '@/lib/firestoreService';
 import { fetchFromGoogleSheets } from '@/lib/googleSheetsService';
 import { toast } from 'sonner';
 import Papa from 'papaparse';
@@ -11,6 +11,7 @@ interface AppState {
   supData: DataRow[];
   ejecData: DataRow[];
   ejecPendientesData: DataRow[];
+  usersData: UserRow[];
   activeTab: TabName;
   yearFilter: string;
   monthFilter: string;
@@ -28,6 +29,9 @@ interface AppContextType extends AppState {
   updateRow: (type: 'sup' | 'ejec' | 'ejec_pend', index: number, field: string, value: string) => Promise<void>;
   deleteRow: (type: 'sup' | 'ejec' | 'ejec_pend', index: number) => Promise<void>;
   deleteRowsBulk: (type: 'sup' | 'ejec' | 'ejec_pend', indices: number[]) => Promise<void>;
+  addRecord: (type: 'sup' | 'ejec' | 'ejec_pend', row: DataRow) => Promise<void>;
+  addUser: (nombre: string, rol: 'SUPERVISOR' | 'EJECUTIVO') => Promise<void>;
+  removeUser: (id: string) => Promise<void>;
   hasData: boolean;
 }
 
@@ -44,6 +48,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     supData: [],
     ejecData: [],
     ejecPendientesData: [],
+    usersData: [],
     activeTab: 'dashboard',
     yearFilter: '2026',
     monthFilter: 'all',
@@ -140,7 +145,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const loadFromFirestore = useCallback(async () => {
     setState(s => ({ ...s, isLoading: true }));
     try {
-      const { supData, ejecData, ejecPendientesData } = await fetchVisitasData();
+      const [{ supData, ejecData, ejecPendientesData }, users] = await Promise.all([
+        fetchVisitasData(),
+        fetchUsersData()
+      ]);
+      setState(s => ({ ...s, usersData: users }));
       processData(supData, ejecData, ejecPendientesData);
     } catch (err) {
       console.error('Error loading from Firestore:', err);
@@ -190,6 +199,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       const supRealized = supData.filter(r => isRealized(r.STATUS)).length;
       const ejecRealized = ejecData.filter(r => isRealized(r.STATUS)).length;
+      const users = await fetchUsersData();
+      setState(s => ({ ...s, usersData: users }));
       processData(supData, ejecData, ejecPendientesData);
       toast.success(`Sincronizado: ${supData.length} sup (${supRealized} realiz), ${ejecData.length} ejec (${ejecRealized} realiz), ${ejecPendientesData.length} pendientes`);
       // Guardar Supervisores y Ejecutivos (normal) en Firestore.
@@ -208,7 +219,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.error('Error syncing from Google Sheets:', err);
       toast.error('Error al sincronizar. Cargando datos guardados...');
       try {
-        const { supData, ejecData, ejecPendientesData } = await fetchVisitasData();
+        const [{ supData, ejecData, ejecPendientesData }, users] = await Promise.all([
+          fetchVisitasData(),
+          fetchUsersData()
+        ]);
+        setState(s => ({ ...s, usersData: users }));
         processData(supData, ejecData, ejecPendientesData);
       } catch {
         setState(s => ({ ...s, isLoading: false }));
@@ -294,6 +309,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await deleteRowsBatchFromFirestore(type, rowsToDelete);
   }, [state.supData, state.ejecData, state.ejecPendientesData]);
 
+  const addRecord = useCallback(async (type: 'sup' | 'ejec' | 'ejec_pend', row: DataRow) => {
+    const dataKey = dataKeyFor(type);
+    setState(s => {
+      const newData = [...s[dataKey], row];
+      return { ...s, [dataKey]: newData };
+    });
+    await addRecordToFirestore(type, row);
+  }, []);
+
+  const addUser = useCallback(async (nombre: string, rol: 'SUPERVISOR' | 'EJECUTIVO') => {
+    const newUser = { nombre, rol };
+    const id = await saveUserToFirestore(newUser);
+    setState(s => ({
+      ...s,
+      usersData: [...s.usersData, { ...newUser, id }]
+    }));
+  }, []);
+
+  const removeUser = useCallback(async (id: string) => {
+    await deleteUserFromFirestore(id);
+    setState(s => ({
+      ...s,
+      usersData: s.usersData.filter(u => u.id !== id)
+    }));
+  }, []);
+
   // Auto-sync from Google Sheets on mount
   useEffect(() => {
     syncFromGoogleSheets();
@@ -302,7 +343,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const hasData = state.supData.length > 0 || state.ejecData.length > 0;
 
   return (
-    <AppContext.Provider value={{ ...state, setActiveTab, setYearFilter, setMonthFilter, handleFileUpload, loadFromFirestore, syncFromGoogleSheets, updateRow, deleteRow, deleteRowsBulk, hasData }}>
+    <AppContext.Provider value={{ ...state, setActiveTab, setYearFilter, setMonthFilter, handleFileUpload, loadFromFirestore, syncFromGoogleSheets, updateRow, deleteRow, deleteRowsBulk, addRecord, addUser, removeUser, hasData }}>
       {children}
     </AppContext.Provider>
   );

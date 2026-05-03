@@ -6,6 +6,7 @@ import DashboardSection from '@/components/DashboardSection';
 import BalanceSection from '@/components/BalanceSection';
 import ReportSection from '@/components/ReportSection';
 import DataTableSection from '@/components/DataTableSection';
+import AdminSection from '@/components/AdminSection';
 import LoaderOverlay from '@/components/LoaderOverlay';
 
 function DashboardContent() {
@@ -23,6 +24,7 @@ function DashboardContent() {
         {hasData && activeTab === 'balance' && <BalanceSection />}
         {hasData && activeTab === 'report' && <ReportSection />}
         {hasData && activeTab === 'datos' && <DataTableSection />}
+        {activeTab === 'admin' && <AdminSection />}
       </main>
     </div>
   );

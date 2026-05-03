@@ -210,122 +210,7 @@ export default function DataTableSection() {
     }
   }, [filtered, rawData, dataType, updateRow]);
 
-  const [backfilling, setBackfilling] = useState(false);
-
-  // Backfill Ene/Feb/Mar: marca todos los pendientes de esos meses como ENVIADO
-  // y les asigna FECHA ENVIADO aleatoria dentro del mes (que cuadre).
-  const handleBackfillQ1 = useCallback(async () => {
-    if (dataType !== 'ejec_pend') return;
-    if (!window.confirm('Esto marcará TODOS los registros de enero, febrero y marzo como ENVIADO con fechas aleatorias dentro de cada mes. ¿Continuar?')) return;
-
-    const targetMonths = new Set(['ENERO', 'FEBRERO', 'MARZO']);
-    const monthIndex: Record<string, number> = { ENERO: 0, FEBRERO: 1, MARZO: 2 };
-    const daysInMonth = (year: number, monthIdx: number) => new Date(year, monthIdx + 1, 0).getDate();
-
-    const targets: { idx: number; mes: string }[] = [];
-    ejecPendientesData.forEach((r, idx) => {
-      let mes = normalizeMonth(r.MES);
-      // Si no hay MES, intentar derivarlo desde FECHA
-      if (!targetMonths.has(mes)) {
-        const d = parseDateValue(r.FECHA);
-        if (d) {
-          const m = d.getMonth(); // 0=ene, 1=feb, 2=mar
-          if (m === 0) mes = 'ENERO';
-          else if (m === 1) mes = 'FEBRERO';
-          else if (m === 2) mes = 'MARZO';
-        }
-      }
-      if (!targetMonths.has(mes)) return;
-      targets.push({ idx, mes });
-    });
-
-    if (targets.length === 0) {
-      toast.info('No hay registros de enero/febrero/marzo');
-      return;
-    }
-
-    setBackfilling(true);
-    let ok = 0;
-    let fail = 0;
-    try {
-      for (const { idx, mes } of targets) {
-        const row = ejecPendientesData[idx];
-        if (!row) continue;
-        const yearStr = (row.AÑO || '').toString().trim() || yearFilter;
-        const year = parseInt(yearStr, 10) || new Date().getFullYear();
-        const mIdx = monthIndex[mes];
-        const day = 1 + Math.floor(Math.random() * daysInMonth(year, mIdx));
-        const dd = String(day).padStart(2, '0');
-        const mm = String(mIdx + 1).padStart(2, '0');
-        const fechaEnviado = `${year}-${mm}-${dd}`;
-        try {
-          await updateRow('ejec_pend', idx, 'STATUS', 'ENVIADO');
-          await updateRow('ejec_pend', idx, 'FECHA ENVIADO', fechaEnviado);
-          ok++;
-        } catch (e) {
-          console.error('Backfill error en row', idx, e);
-          fail++;
-        }
-      }
-      toast.success(`Backfill listo: ${ok} actualizados${fail ? `, ${fail} fallaron` : ''}`);
-    } finally {
-      setBackfilling(false);
-    }
-  }, [dataType, ejecPendientesData, yearFilter, updateRow]);
-
-  const [dedup, setDedup] = useState(false);
-
-  // Limpia duplicados en Ejecutivos 2: agrupa por (EJECUTIVO|CLIENTE|SUCURSAL|MES|TIPO|OBSERVACIONES)
-  // y conserva 1 solo registro por grupo, prefiriendo el ENVIADO sobre el PROGRAMADO.
-  const handleDedup = useCallback(async () => {
-    if (dataType !== 'ejec_pend') return;
-    if (!window.confirm('Esto eliminará registros duplicados de Ejecutivos 2 (mismo ejecutivo + cliente + sucursal + mes). Se conservará el ENVIADO si existe. ¿Continuar?')) return;
-
-    const norm = (v: unknown) => (v ?? '').toString().trim().toUpperCase();
-    const groups = new Map<string, number[]>();
-    ejecPendientesData.forEach((r, idx) => {
-      const key = [
-        norm(r.EJECUTIVO),
-        norm(r.CLIENTE),
-        norm(r.SUCURSAL),
-        norm(r.MES),
-        norm(r.AÑO),
-        norm(r['TIPO DE VISITA']),
-        norm(r.OBSERVACIONES),
-      ].join('|');
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(idx);
-    });
-
-    const toDelete: number[] = [];
-    groups.forEach(indices => {
-      if (indices.length <= 1) return;
-      // Ordenar: primero los ENVIADO/realized, luego los demás
-      const sorted = [...indices].sort((a, b) => {
-        const ra = isRealized(ejecPendientesData[a].STATUS) ? 0 : 1;
-        const rb = isRealized(ejecPendientesData[b].STATUS) ? 0 : 1;
-        return ra - rb;
-      });
-      // Conservar el primero, eliminar el resto
-      for (let i = 1; i < sorted.length; i++) toDelete.push(sorted[i]);
-    });
-
-    if (toDelete.length === 0) {
-      toast.info('No hay duplicados');
-      return;
-    }
-
-    setDedup(true);
-    try {
-      await deleteRowsBulk('ejec_pend', toDelete);
-      toast.success(`${toDelete.length} duplicados eliminados`);
-    } catch (e) {
-      console.error(e);
-      toast.error('Error al limpiar duplicados');
-    } finally {
-      setDedup(false);
-    }
-  }, [dataType, ejecPendientesData, deleteRowsBulk]);
+  // Funciones obsoletas eliminadas
 
 
   const handleDelete = useCallback(async (rowIdx: number) => {
@@ -561,31 +446,27 @@ export default function DataTableSection() {
           </Select>
         )}
 
-        {dataType === 'ejec_pend' && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs"
-            onClick={handleBackfillQ1}
-            disabled={backfilling}
-            title="Marca Ene/Feb/Mar como ENVIADO con fechas aleatorias"
+        {/* Quick filters para STATUS */}
+        <div className="flex bg-background border rounded-md overflow-hidden text-xs h-8">
+          <button
+            onClick={() => setStatusFilter('all')}
+            className={`px-3 font-medium transition ${statusFilter === 'all' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
           >
-            {backfilling ? 'Procesando...' : 'Backfill Ene–Mar'}
-          </Button>
-        )}
-
-        {dataType === 'ejec_pend' && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs"
-            onClick={handleDedup}
-            disabled={dedup}
-            title="Elimina registros duplicados conservando ENVIADO"
+            Todos
+          </button>
+          <button
+            onClick={() => setStatusFilter('PROGRAMADO')}
+            className={`px-3 font-medium transition ${statusFilter === 'PROGRAMADO' ? 'bg-blue-500 text-white' : 'text-muted-foreground hover:bg-muted'}`}
           >
-            {dedup ? 'Limpiando...' : 'Limpiar duplicados'}
-          </Button>
-        )}
+            Programados
+          </button>
+          <button
+            onClick={() => setStatusFilter('ENVIADO')}
+            className={`px-3 font-medium transition ${statusFilter === 'ENVIADO' ? 'bg-green-500 text-white' : 'text-muted-foreground hover:bg-muted'}`}
+          >
+            Enviados
+          </button>
+        </div>
 
         {/* Date from */}
         <Popover>
