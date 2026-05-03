@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useAppContext } from '@/context/AppContext';
 import { filterByYearMonth, MONTH_NAMES, normalizeText, cleanString, normalizeMonth, parseDateValue, isRealized } from '@/lib/dataProcessing';
+import { useAuth } from '@/context/AuthContext';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
@@ -24,7 +25,8 @@ const EJEC_STATUS_OPTIONS = ['PROGRAMADO', 'ENVIADO'];
 type DeleteScope = 'single' | 'forward' | 'range' | 'year';
 
 export default function DataTableSection() {
-  const { supData, ejecData, ejecPendientesData, yearFilter, monthFilter, updateRow, deleteRow, deleteRowsBulk } = useAppContext();
+  const { supData, ejecData, ejecPendientesData, yearFilter, monthFilter, updateRow, deleteRow, deleteRowsBulk, usersData } = useAppContext();
+  const { profile, user } = useAuth();
   const [dataType, setDataType] = useState<DataType>('sup');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -46,6 +48,8 @@ export default function DataTableSection() {
   const rawData = dataType === 'sup' ? supData : dataType === 'ejec' ? ejecData : ejecPendientesData;
   const personField = dataType === 'sup' ? 'SUPERVISOR' : 'EJECUTIVO';
   const isEjec = dataType === 'ejec' || dataType === 'ejec_pend';
+  const isSuperAdmin = user?.email?.toLowerCase() === 'yeyickvelas@gmail.com';
+  const isAdmin = isSuperAdmin || profile?.rol === 'ADMIN' || profile?.rol === 'SUPERVISOR';
 
   // Unique names for dropdown
   const uniqueNames = useMemo(() => {
@@ -132,9 +136,9 @@ export default function DataTableSection() {
     ? [
         { key: 'FECHA', label: 'Fecha', editable: true, type: 'date' as const },
         { key: 'MES', label: 'Mes', editable: false },
-        { key: personField, label: 'Ejecutivo', editable: false },
-        { key: 'CLIENTE', label: 'Cliente', editable: false },
-        { key: 'SUCURSAL', label: 'Sucursal', editable: false },
+        { key: personField, label: 'Ejecutivo', editable: isAdmin },
+        { key: 'CLIENTE', label: 'Cliente', editable: isAdmin },
+        { key: 'SUCURSAL', label: 'Sucursal', editable: isAdmin },
         { key: 'STATUS', label: 'Status', editable: true, type: 'select' as const },
         ...(dataType === 'ejec_pend'
           ? [{ key: 'FECHA ENVIADO', label: 'Fecha Enviado', editable: true, type: 'date' as const }]
@@ -593,6 +597,7 @@ export default function DataTableSection() {
                               onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit(); }}
                               className="h-8 text-xs"
                               autoFocus
+                              list={col.key === personField ? 'users-datalist' : undefined}
                             />
                             <button onClick={() => saveEdit()} disabled={saving === i} className="p-1 rounded hover:bg-green-100 text-green-600">
                               <Check className="w-4 h-4" />
@@ -601,6 +606,13 @@ export default function DataTableSection() {
                               <X className="w-4 h-4" />
                             </button>
                           </div>
+                          {col.key === personField && (
+                            <datalist id="users-datalist">
+                              {usersData.filter(u => dataType === 'sup' ? u.rol === 'SUPERVISOR' || u.rol === 'ADMIN' : u.rol === 'EJECUTIVO').map(u => (
+                                <option key={u.id} value={u.nombre} />
+                              ))}
+                            </datalist>
+                          )}
                         </td>
                       );
                     }

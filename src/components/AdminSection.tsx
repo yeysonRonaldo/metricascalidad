@@ -46,7 +46,7 @@ export default function AdminSection() {
 
   // Estado para Nuevo Registro
   const [recordType, setRecordType] = useState<'sup' | 'ejec' | 'ejec_pend'>('ejec_pend');
-  const [date, setDate] = useState<Date | undefined>();
+  const [date, setDate] = useState<Date | undefined>(new Date());
   const [frecuencia, setFrecuencia] = useState<'once' | 'monthly' | 'bimonthly' | 'quarterly'>('once');
   const [person, setPerson] = useState('');
   const [client, setClient] = useState('');
