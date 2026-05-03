@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, typ
 import type { DataRow, TabName } from '@/types/metrics';
 import { convertDatesAndFill, isRealized, isProgrammed, parseDateValue } from '@/lib/dataProcessing';
 import { fetchVisitasData, saveSupData, saveEjecData, saveEjecPendientesData, updateRowInFirestore, deleteRowFromFirestore, deleteRowsBatchFromFirestore, fetchUsersData, saveUserToFirestore, deleteUserFromFirestore, addRecordToFirestore, type UserRow } from '@/lib/firestoreService';
+import { useAuth } from '@/context/AuthContext';
 import { fetchFromGoogleSheets } from '@/lib/googleSheetsService';
 import { toast } from 'sonner';
 import Papa from 'papaparse';
@@ -30,7 +31,7 @@ interface AppContextType extends AppState {
   deleteRow: (type: 'sup' | 'ejec' | 'ejec_pend', index: number) => Promise<void>;
   deleteRowsBulk: (type: 'sup' | 'ejec' | 'ejec_pend', indices: number[]) => Promise<void>;
   addRecord: (type: 'sup' | 'ejec' | 'ejec_pend', row: DataRow) => Promise<void>;
-  addUser: (nombre: string, rol: 'SUPERVISOR' | 'EJECUTIVO') => Promise<void>;
+  addUser: (nombre: string, rol: 'SUPERVISOR' | 'EJECUTIVO' | 'ADMIN', email?: string, password?: string) => Promise<void>;
   removeUser: (id: string) => Promise<void>;
   hasData: boolean;
 }
@@ -44,6 +45,7 @@ export function useAppContext() {
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const { profile, user } = useAuth();
   const [state, setState] = useState<AppState>({
     supData: [],
     ejecData: [],
@@ -60,27 +62,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setYearFilter = useCallback((y: string) => setState(s => ({ ...s, yearFilter: y })), []);
   const setMonthFilter = useCallback((m: string) => setState(s => ({ ...s, monthFilter: m })), []);
 
+  const restrictDataByRole = useCallback((sup: DataRow[], ejec: DataRow[], pend: DataRow[]) => {
+    const isSuperAdmin = user?.email?.toLowerCase() === 'yeyickvelas@gmail.com';
+    if (!isSuperAdmin && profile?.rol === 'EJECUTIVO') {
+      const myName = profile.nombre.toUpperCase();
+      return {
+        restrictedSup: sup, // Or empty if we don't want them to see sups at all
+        restrictedEjec: ejec.filter(r => (r.EJECUTIVO || '').toString().toUpperCase() === myName),
+        restrictedPend: pend.filter(r => (r.EJECUTIVO || '').toString().toUpperCase() === myName),
+      };
+    }
+    return { restrictedSup: sup, restrictedEjec: ejec, restrictedPend: pend };
+  }, [profile]);
+
   const processData = useCallback((supData: DataRow[], ejecData: DataRow[], ejecPendientesData: DataRow[] = []) => {
+    const { restrictedSup, restrictedEjec, restrictedPend } = restrictDataByRole(supData, ejecData, ejecPendientesData);
+    
     const years = new Set<string>();
-    supData.forEach(d => { if (d.AÑO) years.add(d.AÑO.toString()); });
-    ejecData.forEach(d => { if (d.AÑO) years.add(d.AÑO.toString()); });
+    restrictedSup.forEach(d => { if (d.AÑO) years.add(d.AÑO.toString()); });
+    restrictedEjec.forEach(d => { if (d.AÑO) years.add(d.AÑO.toString()); });
     const sortedYears = Array.from(years).sort();
     const latestYear = sortedYears.length
       ? sortedYears[sortedYears.length - 1]
-      : (supData.length > 0 || ejecData.length > 0 ? 'all' : '2026');
+      : (restrictedSup.length > 0 || restrictedEjec.length > 0 ? 'all' : '2026');
 
-    const defaultTab: TabName = supData.length > 0 ? 'dashboard' : 'ejecutivos';
+    const isSuperAdmin = user?.email?.toLowerCase() === 'yeyickvelas@gmail.com';
+    const defaultTab: TabName = (!isSuperAdmin && profile?.rol === 'EJECUTIVO') ? 'ejecutivos2' : (restrictedSup.length > 0 ? 'dashboard' : 'ejecutivos');
     setState(s => ({
       ...s,
-      supData,
-      ejecData,
-      ejecPendientesData,
+      supData: restrictedSup,
+      ejecData: restrictedEjec,
+      ejecPendientesData: restrictedPend,
       yearFilter: latestYear,
       activeTab: defaultTab,
       isLoading: false,
       lastSync: new Date(),
     }));
-  }, []);
+  }, [restrictDataByRole, profile, user?.email]);
 
   const handleFileUpload = useCallback((file: File) => {
     setState(s => ({ ...s, isLoading: true }));
@@ -318,8 +336,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await addRecordToFirestore(type, row);
   }, []);
 
-  const addUser = useCallback(async (nombre: string, rol: 'SUPERVISOR' | 'EJECUTIVO') => {
-    const newUser = { nombre, rol };
+  const addUser = useCallback(async (nombre: string, rol: 'SUPERVISOR' | 'EJECUTIVO' | 'ADMIN', email?: string, password?: string) => {
+    const newUser = { nombre, rol, email, password };
     const id = await saveUserToFirestore(newUser);
     setState(s => ({
       ...s,
@@ -334,6 +352,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       usersData: s.usersData.filter(u => u.id !== id)
     }));
   }, []);
+
+  // Re-process data if profile changes
+  useEffect(() => {
+    if (!state.isLoading && state.lastSync) {
+      loadFromFirestore();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile]);
 
   // Auto-sync from Google Sheets on mount
   useEffect(() => {

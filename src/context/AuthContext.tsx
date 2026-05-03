@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut as firebaseSignOut, type User } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import type { UserRow } from '@/lib/firestoreService';
 
 interface AuthUser {
   uid: string;
@@ -11,6 +12,7 @@ interface AuthUser {
 
 interface AuthContextType {
   user: AuthUser | null;
+  profile: UserRow | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -27,6 +29,7 @@ export function useAuth() {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [profile, setProfile] = useState<UserRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,8 +41,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: firebaseUser.email,
           displayName: firebaseUser.displayName,
         });
+        
+        if (firebaseUser.email) {
+          try {
+            const q = query(collection(db, 'visitas_usuarios'), where('email', '==', firebaseUser.email));
+            const snap = await getDocs(q);
+            if (!snap.empty) {
+              setProfile({ id: snap.docs[0].id, ...snap.docs[0].data() } as UserRow);
+            } else {
+              setProfile(null);
+            }
+          } catch (e) {
+            console.error('Error fetching user profile', e);
+            setProfile(null);
+          }
+        }
       } else {
         setUser(null);
+        setProfile(null);
       }
       setLoading(false);
     });
@@ -64,10 +83,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await firebaseSignOut(auth);
     setUser(null);
+    setProfile(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut, error }}>
+    <AuthContext.Provider value={{ user, profile, loading, signIn, signOut, error }}>
       {children}
     </AuthContext.Provider>
   );

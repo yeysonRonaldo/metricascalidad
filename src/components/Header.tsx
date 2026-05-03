@@ -18,7 +18,7 @@ const tabs: { id: TabName; label: string; icon: React.ReactNode; field: 'sup' | 
 
 export default function Header() {
   const { activeTab, setActiveTab, yearFilter, setYearFilter, monthFilter, setMonthFilter, handleFileUpload, syncFromGoogleSheets, supData, ejecData, ejecPendientesData, hasData, lastSync, isLoading } = useAppContext();
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const [showAddUser, setShowAddUser] = useState(false);
   const years = getYears(supData, ejecData);
@@ -30,6 +30,10 @@ export default function Header() {
   };
 
   const visibleTabs = tabs.filter(t => {
+    const isSuperAdmin = user?.email?.toLowerCase() === 'yeyickvelas@gmail.com';
+    if (!isSuperAdmin && profile?.rol === 'EJECUTIVO') {
+      return t.id === 'ejecutivos2';
+    }
     if (!hasData && t.field !== 'admin') return false;
     if (t.field === 'sup') return supData.length > 0;
     if (t.field === 'ejec') return ejecData.length > 0;

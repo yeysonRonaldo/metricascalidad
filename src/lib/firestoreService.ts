@@ -12,6 +12,8 @@ export interface UserRow {
   id?: string;
   nombre: string;
   rol: 'SUPERVISOR' | 'EJECUTIVO';
+  email?: string;
+  password?: string;
 }
 
 type DataType = 'sup' | 'ejec' | 'ejec_pend';
@@ -247,6 +249,36 @@ export async function addRecordToFirestore(type: DataType, row: DataRow): Promis
   
   await setDoc(doc(db, collectionName, docId), rowCopy);
   return docId;
+}
+
+export async function addRecordsBulkToFirestore(type: DataType, rows: DataRow[]): Promise<void> {
+  const collectionName = collectionFor(type);
+  const batch = writeBatch(db);
+  let count = 0;
+
+  for (const row of rows) {
+    let docId = generateRowId(row, type);
+    if (type === 'ejec_pend') {
+      docId = `${docId}_${Date.now()}_${count}`;
+    }
+    const rowCopy = { ...row };
+    delete rowCopy._ROLE;
+    if (type === 'ejec_pend') {
+      (rowCopy as Record<string, unknown>)._docId = docId;
+    }
+    
+    const docRef = doc(db, collectionName, docId);
+    batch.set(docRef, rowCopy);
+    
+    count++;
+    if (count % 500 === 0) {
+      await batch.commit();
+    }
+  }
+
+  if (count % 500 !== 0) {
+    await batch.commit();
+  }
 }
 
 export async function fetchUsersData(): Promise<UserRow[]> {
