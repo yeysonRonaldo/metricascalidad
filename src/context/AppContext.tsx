@@ -67,13 +67,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!isSuperAdmin && profile?.rol === 'EJECUTIVO') {
       const myName = profile.nombre.toUpperCase();
       return {
-        restrictedSup: sup, // Or empty if we don't want them to see sups at all
+        restrictedSup: [], // Ejecutivos no ven datos de supervisores
         restrictedEjec: ejec.filter(r => (r.EJECUTIVO || '').toString().toUpperCase() === myName),
         restrictedPend: pend.filter(r => (r.EJECUTIVO || '').toString().toUpperCase() === myName),
       };
     }
     return { restrictedSup: sup, restrictedEjec: ejec, restrictedPend: pend };
-  }, [profile]);
+  }, [profile, user?.email]);
 
   const processData = useCallback((supData: DataRow[], ejecData: DataRow[], ejecPendientesData: DataRow[] = []) => {
     const { restrictedSup, restrictedEjec, restrictedPend } = restrictDataByRole(supData, ejecData, ejecPendientesData);
