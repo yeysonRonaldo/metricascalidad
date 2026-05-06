@@ -51,4 +51,4 @@ export interface BalanceRow {
 }
 
 export type TimeUnit = 'day' | 'week' | 'month' | 'year';
-export type TabName = 'dashboard' | 'ejecutivos' | 'ejecutivos2' | 'balance' | 'report' | 'datos' | 'admin';
+export type TabName = 'dashboard' | 'ejecutivos' | 'ejecutivos2' | 'plan' | 'balance' | 'report' | 'datos' | 'admin';
