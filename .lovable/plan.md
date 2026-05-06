@@ -1,85 +1,75 @@
+# Plan: Vistas restringidas + Plan de Llamadas mensual
 
-# Plan: Nueva pestaña "Ejecutivos 2" (Pendientes sin mes)
+## Parte 1 — Restringir datos visibles para EJECUTIVO
 
-## Objetivo
+Hoy en `AppContext.restrictDataByRole` ya se filtran `ejecData` y `ejecPendientesData` por su nombre, pero `supData` se deja pasar completo. La pestaña "Base de Datos" entonces les muestra registros de otros.
 
-Crear una segunda vista de Ejecutivos que muestre **solo los registros con STATUS = PROGRAMADO y columna MES vacía**. Esta vista tendrá su propia copia de los datos en Firestore (backup independiente) para que las ediciones (PROGRAMADO → ENVIADO) no afecten la base original de Ejecutivos.
+Cambios:
+- En `restrictDataByRole`: para rol `EJECUTIVO` (no super-admin) devolver `restrictedSup: []` para que no vean nada de supervisores en ninguna vista (Base de Datos incluida).
+- En `DataTableSection`: cuando el usuario es EJECUTIVO, ocultar el selector de tipo "Supervisores" y forzar el tipo a `ejec_pend` (sus pendientes / plan de llamadas). Dejar solo edición sobre sus propias filas.
+- Confirmar que las pestañas visibles para EJECUTIVO siguen siendo solo `ejecutivos2` y `datos` (ya hecho).
 
-## Cómo entiendo el caso
+## Parte 2 — Plan de Llamadas mensual
 
-- Hoy "Ejecutivos" muestra todos los registros del Excel (PROGRAMADO + ENVIADO + lo que tengan).
-- Quieres una vista paralela "Ejecutivos 2" idéntica visualmente (KPIs, tarjetas de meta, gráficas, tabla editable) pero filtrada únicamente a las **metas pendientes sin mes** (PROGRAMADO + MES vacío).
-- Esta vista debe trabajar sobre una **copia separada** en Firestore. Cuando se sincronice desde Google Sheets, copiamos a esa colección **solo los registros PROGRAMADOS sin mes**.
-- A medida que el usuario cambie un registro a ENVIADO en esta vista, se actualiza solo en esta copia (no toca la colección original `visitas_ejecutivos`).
+Objetivo: cada ejecutivo ve a sus ~45+ clientes pendientes del mes y el sistema le arma un calendario de llamadas (lunes a viernes), editable.
 
-## Cambios
+### 2.1 Modelo de datos
 
-### 1. Backend (Firestore)
-- Nueva colección: `visitas_ejecutivos_pendientes`.
-- En `src/lib/firestoreService.ts`:
-  - Agregar `saveEjecPendientesData(data, replace)` y constante `COLLECTION_EJEC_PENDIENTES`.
-  - Extender `fetchVisitasData()` para que también devuelva `ejecPendientesData`.
-  - Extender `updateRowInFirestore`, `deleteRowFromFirestore`, `deleteRowsBatchFromFirestore` para aceptar el tipo `'ejec_pend'`.
+Extender los registros de `visitas_ejecutivos_pendientes` con campos nuevos (no rompe nada existente, son opcionales):
 
-### 2. Estado global (`src/context/AppContext.tsx`)
-- Añadir `ejecPendientesData: DataRow[]` al estado.
-- En `syncFromGoogleSheets`:
-  - Después de traer Supervisores de Google Sheets, filtrar:
-    ```
-    pendientes = supDataOriginalEjec.filter(r =>
-      isProgrammed(r.STATUS) && !String(r.MES || '').trim()
-    )
-    ```
-  - **Origen de la copia**: la vista de Ejecutivos hoy se alimenta de Firestore (decoupled). La copia de "Ejecutivos 2" se generará a partir de **`ejecData` de Firestore** filtrando PROGRAMADO + MES vacío, y se guardará en `visitas_ejecutivos_pendientes` solo si la colección está vacía (primera carga). En cargas posteriores, si ya existe contenido en la colección de pendientes, se respeta (igual que hoy con Ejecutivos) para no perder los cambios PROGRAMADO → ENVIADO.
-- Exponer `updateEjecPendienteRow`, `deleteEjecPendienteRow`, `deleteEjecPendientesBulk`.
+- `FECHA_LLAMADA` (string `YYYY-MM-DD`) — día asignado para llamar.
+- `FECHA_LLAMADA_ORIGINAL` (string) — primera fecha auto-asignada, para auditoría.
+- `MOTIVO_CAMBIO_FECHA` (string) — obligatorio cuando se modifica `FECHA_LLAMADA`.
+- `PLAGA` (boolean), `MEJORA_MANTENIMIENTO` (boolean), `MEJORA_LIMPIEZA` (boolean).
+- `OBSERVACIONES_LLAMADA` (string) — texto libre adicional, separado de `OBSERVACIONES` original.
+- `LLAMADA_REALIZADA` (boolean) — para marcar cuando ya se contactó.
+- `FECHA_LLAMADA_REALIZADA` (string) — se autocompleta cuando marcan "realizada".
 
-### 3. UI - Nueva pestaña
-- En `src/types/metrics.ts`: agregar `'ejecutivos2'` a `TabName`.
-- En `src/components/Header.tsx`: nueva tab "Ejecutivos 2" (icono `ClipboardList`), visible solo si `ejecPendientesData.length > 0`.
-- En `src/pages/Index.tsx`: rutear `activeTab === 'ejecutivos2'` a un nuevo componente.
+Agregar estos campos al `interface DataRow` en `src/types/metrics.ts`.
 
-### 4. Componente de dashboard
-- Reutilizar `DashboardSection` parametrizado. Hoy acepta `type: 'SUPERVISOR' | 'EJECUTIVO'` y elige `supData`/`ejecData` desde el contexto.
-- Agregar un tercer modo `type: 'EJECUTIVO_PENDIENTE'` que tome `ejecPendientesData`. Las gráficas, KPIs y tarjetas de meta funcionan igual (mismo shape de `DataRow`).
-- Título: "📋 Ejecutivos - Metas Pendientes (sin mes)".
+### 2.2 Auto-asignación de días
 
-### 5. Tabla editable
-- Extender `DataTableSection` con un tercer modo `'ejec_pend'` (botón en el switch de tipo, junto a Supervisores/Ejecutivos), o crear un componente delgado que reutilice la lógica.
-- Reglas de edición iguales a Ejecutivos: solo STATUS editable, opciones `['PROGRAMADO', 'ENVIADO']`.
-- Al cambiar a ENVIADO, el registro permanece en la colección de pendientes (queda como histórico de "ya enviado") — o se puede mover/eliminar. **Decisión propuesta**: mantenerlo visible para que se vea el progreso; el filtro PROGRAMADO/ENVIADO ya existe en la tabla.
+Nueva utilidad `src/lib/callPlanScheduler.ts`:
+- Función `assignCallDates(clients, year, month)` que toma los clientes pendientes del ejecutivo y reparte uniformemente entre los días hábiles (Lun-Vie) del mes seleccionado.
+- Estrategia: `clientsPerDay = ceil(total / businessDays)`; ordena clientes alfabéticamente por CLIENTE/SUCURSAL para reparto estable; respeta `FECHA_LLAMADA` ya existente (no la sobrescribe).
+- Solo asigna a registros sin `FECHA_LLAMADA`. La función devuelve `{ row, newDate }[]` para persistir solo las que cambiaron.
 
-## Detalle técnico
+### 2.3 Nueva vista "Plan de Llamadas"
 
-**Filtro de copia (regla única):**
-```typescript
-const esPendiente = (r: DataRow) =>
-  isProgrammed(r.STATUS) &&
-  !String(r.MES || '').trim();
-```
+Componente `src/components/CallPlanSection.tsx`:
 
-**Flujo de sincronización:**
-```
-Google Sheets → supData (Firestore)
-Firestore visitas_ejecutivos → ejecData (sin tocar)
-Firestore visitas_ejecutivos_pendientes → ejecPendientesData
-  ↳ si está vacío en primera ejecución: poblar desde ejecData.filter(esPendiente)
-```
+- Vista por defecto para ejecutivos (reemplaza `ejecutivos2` como pestaña principal o se agrega al lado — ver sección "Decisiones" abajo).
+- Filtra `ejecPendientesData` por el ejecutivo logueado y por el mes/año del filtro global.
+- Botón "Generar plan del mes" → corre `assignCallDates` y persiste con `updateRow` por cada cambio.
+- Render por **semana** (Lun-Vie), tarjetas/lista agrupadas por `FECHA_LLAMADA`. Cada tarjeta muestra: cliente, sucursal, status actual, checkboxes (Plaga / Mantenimiento / Limpieza), textarea de observaciones, y botón "Marcar llamada realizada".
+- Cambio de fecha: botón con `Popover` + `Calendar` (shadcn datepicker, restringido a Lun-Vie del mes actual). Al confirmar nueva fecha pide en un `Dialog` el **motivo** (textarea obligatoria, mínimo 5 caracteres) → guarda `FECHA_LLAMADA`, `MOTIVO_CAMBIO_FECHA` y deja `FECHA_LLAMADA_ORIGINAL` intacta.
+- Indicadores rápidos arriba: total de clientes, llamadas pendientes hoy, pendientes esta semana, % avance del mes.
 
-**Independencia**: editar un registro en "Ejecutivos 2" actualiza solo `visitas_ejecutivos_pendientes`. La colección `visitas_ejecutivos` original queda intacta.
+### 2.4 Persistencia
 
-## Archivos a modificar
-- `src/types/metrics.ts`
-- `src/lib/firestoreService.ts`
-- `src/context/AppContext.tsx`
-- `src/components/Header.tsx`
-- `src/pages/Index.tsx`
-- `src/components/DashboardSection.tsx`
-- `src/components/DataTableSection.tsx`
+- Reusar `updateRow('ejec_pend', index, field, value)` en `AppContext`. Ya escribe a `visitas_ejecutivos_pendientes` y mantiene `_docId` estable, así que sirve para todos los nuevos campos sin tocar `firestoreService` salvo extender la lista de campos editables si hay validaciones.
+- Para guardar varios campos a la vez (ej. nueva fecha + motivo) hacer dos `updateRow` consecutivos o agregar un helper `updateRowFields(type, index, partial)` en `AppContext` + `updateRowFieldsInFirestore` en `firestoreService` que haga un único `updateDoc` con varios campos.
 
-## Pregunta antes de implementar
+### 2.5 Pestañas / navegación
 
-Cuando un registro pasa de **PROGRAMADO → ENVIADO** en "Ejecutivos 2", ¿qué prefieres?
-- (A) Que se quede visible en Ejecutivos 2 (marcado ENVIADO) para ver el avance.
-- (B) Que desaparezca de Ejecutivos 2 (se elimine de esa colección) ya que dejó de ser "pendiente".
+- Agregar pestaña `'plan'` (label: "Plan de Llamadas", icono `Phone` o `CalendarDays`).
+- Para EJECUTIVO, las pestañas visibles pasan a: `plan` (default), `ejecutivos2`, `datos`.
+- Para SUPERVISOR/admin la pestaña también queda disponible para revisar planes.
 
-Si no respondes, asumo **(A)** por defecto.
+## Decisiones a confirmar antes de codear
+
+1. ¿La nueva pestaña **Plan de Llamadas** reemplaza a "Ejecutivos 2" para los ejecutivos o conviven? (Mi propuesta: conviven; "Ejecutivos 2" sigue siendo la tabla cruda y "Plan de Llamadas" la vista calendario.)
+2. ¿La auto-asignación debe distribuir uniformemente por mes o concentrarse en la primera quincena (dejando margen al final para reagendar)?
+3. ¿Las casillas Plaga / Mantenimiento / Limpieza son **excluyentes** o se pueden marcar varias al mismo tiempo? (Mi propuesta: múltiples.)
+4. ¿Los supervisores deben poder editar los planes de sus ejecutivos o solo verlos en modo lectura?
+
+## Archivos a tocar
+
+- `src/types/metrics.ts` — campos nuevos en `DataRow` y `TabName`.
+- `src/context/AppContext.tsx` — `restrictDataByRole` (vaciar sup), default tab, opcional `updateRowFields`.
+- `src/lib/firestoreService.ts` — opcional helper multi-campo.
+- `src/lib/callPlanScheduler.ts` — **nuevo**.
+- `src/components/CallPlanSection.tsx` — **nuevo**.
+- `src/components/Header.tsx` — nueva pestaña + filtro de visibilidad por rol.
+- `src/components/DataTableSection.tsx` — ocultar tipo Supervisores para EJECUTIVO.
+- `src/pages/Index.tsx` — render de `CallPlanSection` cuando `activeTab === 'plan'`.

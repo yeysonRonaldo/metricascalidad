@@ -11,7 +11,7 @@ const COLLECTION_USERS = "visitas_usuarios";
 export interface UserRow {
   id?: string;
   nombre: string;
-  rol: 'SUPERVISOR' | 'EJECUTIVO';
+  rol: 'SUPERVISOR' | 'EJECUTIVO' | 'ADMIN';
   email?: string;
   password?: string;
 }

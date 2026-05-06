@@ -27,7 +27,9 @@ type DeleteScope = 'single' | 'forward' | 'range' | 'year';
 export default function DataTableSection() {
   const { supData, ejecData, ejecPendientesData, yearFilter, monthFilter, updateRow, deleteRow, deleteRowsBulk, usersData } = useAppContext();
   const { profile, user } = useAuth();
-  const [dataType, setDataType] = useState<DataType>('sup');
+  const isSuperAdminEarly = user?.email?.toLowerCase() === 'yeyickvelas@gmail.com';
+  const isEjecutivoOnly = !isSuperAdminEarly && profile?.rol === 'EJECUTIVO';
+  const [dataType, setDataType] = useState<DataType>(isEjecutivoOnly ? 'ejec_pend' : 'sup');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [nameFilter, setNameFilter] = useState('all');
@@ -328,18 +330,22 @@ export default function DataTableSection() {
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex bg-muted rounded-lg p-0.5">
-          <button
-            onClick={() => { setDataType('sup'); setSearch(''); setEditingCell(null); setStatusFilter('all'); setNameFilter('all'); setMesFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${dataType === 'sup' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            Supervisores ({supData.length})
-          </button>
-          <button
-            onClick={() => { setDataType('ejec'); setSearch(''); setEditingCell(null); setStatusFilter('all'); setNameFilter('all'); setMesFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${dataType === 'ejec' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            Ejecutivos ({ejecData.length})
-          </button>
+          {!isEjecutivoOnly && (
+            <>
+              <button
+                onClick={() => { setDataType('sup'); setSearch(''); setEditingCell(null); setStatusFilter('all'); setNameFilter('all'); setMesFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${dataType === 'sup' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                Supervisores ({supData.length})
+              </button>
+              <button
+                onClick={() => { setDataType('ejec'); setSearch(''); setEditingCell(null); setStatusFilter('all'); setNameFilter('all'); setMesFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${dataType === 'ejec' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                Ejecutivos ({ejecData.length})
+              </button>
+            </>
+          )}
           <button
             onClick={() => { setDataType('ejec_pend'); setSearch(''); setEditingCell(null); setStatusFilter('all'); setNameFilter('all'); setMesFilter('all'); setDateFrom(undefined); setDateTo(undefined); }}
             className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${dataType === 'ejec_pend' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`}

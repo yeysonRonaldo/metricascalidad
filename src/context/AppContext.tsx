@@ -67,13 +67,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!isSuperAdmin && profile?.rol === 'EJECUTIVO') {
       const myName = profile.nombre.toUpperCase();
       return {
-        restrictedSup: sup, // Or empty if we don't want them to see sups at all
+        restrictedSup: [], // Ejecutivos no ven datos de supervisores
         restrictedEjec: ejec.filter(r => (r.EJECUTIVO || '').toString().toUpperCase() === myName),
         restrictedPend: pend.filter(r => (r.EJECUTIVO || '').toString().toUpperCase() === myName),
       };
     }
     return { restrictedSup: sup, restrictedEjec: ejec, restrictedPend: pend };
-  }, [profile]);
+  }, [profile, user?.email]);
 
   const processData = useCallback((supData: DataRow[], ejecData: DataRow[], ejecPendientesData: DataRow[] = []) => {
     const { restrictedSup, restrictedEjec, restrictedPend } = restrictDataByRole(supData, ejecData, ejecPendientesData);
@@ -87,7 +87,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       : (restrictedSup.length > 0 || restrictedEjec.length > 0 ? 'all' : '2026');
 
     const isSuperAdmin = user?.email?.toLowerCase() === 'yeyickvelas@gmail.com';
-    const defaultTab: TabName = (!isSuperAdmin && profile?.rol === 'EJECUTIVO') ? 'ejecutivos2' : (restrictedSup.length > 0 ? 'dashboard' : 'ejecutivos');
+    const defaultTab: TabName = (!isSuperAdmin && profile?.rol === 'EJECUTIVO') ? 'plan' : (restrictedSup.length > 0 ? 'dashboard' : 'ejecutivos');
     setState(s => ({
       ...s,
       supData: restrictedSup,
