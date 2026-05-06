@@ -57,6 +57,14 @@ export default function CallPlanSection() {
   const [reasonDialog, setReasonDialog] = useState<{ globalIdx: number; newDate: string } | null>(null);
   const [reasonText, setReasonText] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [contactDialog, setContactDialog] = useState<{
+    globalIdx: number;
+    cliente: string;
+    sucursal: string;
+    tel1: string; tel2: string; tel3: string;
+    email1: string; email2: string; email3: string;
+    replicate: boolean;
+  } | null>(null);
 
   // Group clients by FECHA_LLAMADA
   const businessDays = useMemo(() => getBusinessDays(targetYear, targetMonthIdx), [targetYear, targetMonthIdx]);
