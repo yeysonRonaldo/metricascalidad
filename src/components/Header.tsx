@@ -33,12 +33,13 @@ export default function Header() {
   const visibleTabs = tabs.filter(t => {
     const isSuperAdmin = user?.email?.toLowerCase() === 'yeyickvelas@gmail.com';
     if (!isSuperAdmin && profile?.rol === 'EJECUTIVO') {
-      return t.id === 'ejecutivos2' || t.id === 'datos';
+      return t.id === 'plan' || t.id === 'ejecutivos2' || t.id === 'datos';
     }
     if (!hasData && t.field !== 'admin') return false;
     if (t.field === 'sup') return supData.length > 0;
     if (t.field === 'ejec') return ejecData.length > 0;
     if (t.field === 'ejec_pend') return ejecPendientesData.length > 0;
+    if (t.field === 'plan') return ejecPendientesData.length > 0;
     return true;
   });
 
