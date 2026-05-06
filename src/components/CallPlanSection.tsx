@@ -296,10 +296,9 @@ export default function CallPlanSection() {
         </p>
       </Card>
 
-      {myClients.length === 0 && (
-
       {/* Action bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-muted/40 rounded-lg p-3">
+
         <div className="text-sm text-muted-foreground">
           {unassigned.length > 0
             ? <span className="flex items-center gap-1.5"><AlertCircle className="w-4 h-4 text-amber-500" /> {unassigned.length} clientes sin fecha asignada</span>
