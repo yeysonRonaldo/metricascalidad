@@ -330,113 +330,147 @@ export default function CallPlanSection() {
         </div>
       )}
 
-      {/* Weeks */}
-      {weeks.map((week, wi) => (
-        <div key={wi} className="space-y-2">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-            Semana {wi + 1}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-            {week.map((day) => {
-              const ymd = formatYMD(day);
-              const items = grouped.get(ymd) || [];
-              const dayName = DAY_NAMES[day.getDay() - 1] || '';
-              return (
-                <Card key={ymd} className="p-3 flex flex-col gap-2 min-h-[120px]">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-xs text-muted-foreground">{dayName}</div>
-                      <div className="text-lg font-bold">{format(day, 'd MMM', { locale: es })}</div>
-                    </div>
-                    <div className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                      {items.length}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    {items.map(({ row, globalIdx }) => {
+      {/* Tabla de llamadas del mes */}
+      {myClients.length > 0 && (
+        <Card className="p-0 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/50 text-muted-foreground border-b">
+                <tr>
+                  <th className="text-left py-2 px-2 whitespace-nowrap">Fecha</th>
+                  <th className="text-left py-2 px-2">Cliente / Sucursal</th>
+                  <th className="text-center py-2 px-2">Plaga</th>
+                  <th className="text-center py-2 px-2">Mant.</th>
+                  <th className="text-center py-2 px-2">Limpieza</th>
+                  <th className="text-left py-2 px-2 min-w-[180px]">Observaciones</th>
+                  <th className="text-left py-2 px-2">Contacto</th>
+                  <th className="text-center py-2 px-2">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {weeks.flatMap((week) =>
+                  week.flatMap((day) => {
+                    const ymd = formatYMD(day);
+                    const items = grouped.get(ymd) || [];
+                    if (items.length === 0) return [];
+                    return items.map(({ row, globalIdx }, i) => {
                       const done = asBool(row.LLAMADA_REALIZADA);
                       const plaga = asBool(row.PLAGA);
                       const mant = asBool(row.MEJORA_MANTENIMIENTO);
                       const limp = asBool(row.MEJORA_LIMPIEZA);
+                      const dayName = DAY_NAMES[day.getDay() - 1] || '';
                       return (
-                        <div key={`${ymd}-${globalIdx}`} className={cn(
-                          "border rounded-md p-2 text-xs space-y-1.5",
-                          done && "bg-green-50 dark:bg-green-950/20 border-green-300"
-                        )}>
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="font-semibold truncate">{String(row.CLIENTE || '')}</div>
-                              {row.SUCURSAL && <div className="text-muted-foreground truncate">{String(row.SUCURSAL)}</div>}
-                            </div>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-6 w-6">
-                                  <CalendarIcon className="w-3.5 h-3.5" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="end">
-                                <Calendar
-                                  mode="single"
-                                  selected={parseYMD(String(row.FECHA_LLAMADA || ''))}
-                                  onSelect={(d) => requestDateChange(globalIdx, d)}
-                                  disabled={(d) => d.getDay() === 0 || d.getDay() === 6}
-                                  className={cn("p-3 pointer-events-auto")}
-                                />
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            <label className="flex items-center gap-1 cursor-pointer">
-                              <Checkbox checked={plaga} onCheckedChange={(v) => handleToggleField(globalIdx, 'PLAGA', !!v)} />
-                              <Bug className="w-3 h-3" /> Plaga
-                            </label>
-                            <label className="flex items-center gap-1 cursor-pointer">
-                              <Checkbox checked={mant} onCheckedChange={(v) => handleToggleField(globalIdx, 'MEJORA_MANTENIMIENTO', !!v)} />
-                              <Wrench className="w-3 h-3" /> Mant.
-                            </label>
-                            <label className="flex items-center gap-1 cursor-pointer">
-                              <Checkbox checked={limp} onCheckedChange={(v) => handleToggleField(globalIdx, 'MEJORA_LIMPIEZA', !!v)} />
-                              <Sparkles className="w-3 h-3" /> Limpieza
-                            </label>
-                          </div>
-                          <Textarea
-                            placeholder="Observaciones…"
-                            defaultValue={String(row.OBSERVACIONES_LLAMADA || '')}
-                            onBlur={(e) => {
-                              const v = e.target.value;
-                              if (v !== String(row.OBSERVACIONES_LLAMADA || '')) {
-                                handleObsChange(globalIdx, v);
-                              }
-                            }}
-                            className="text-xs min-h-[50px]"
-                          />
-                          {row.MOTIVO_CAMBIO_FECHA && (
-                            <div className="text-[10px] text-muted-foreground italic">
-                              Cambio: {String(row.MOTIVO_CAMBIO_FECHA)}
-                            </div>
+                        <tr
+                          key={`${ymd}-${globalIdx}`}
+                          className={cn(
+                            'border-b last:border-0 hover:bg-muted/30',
+                            done && 'bg-green-50/50 dark:bg-green-950/20'
                           )}
-                          <Button
-                            size="sm"
-                            variant={done ? "outline" : "default"}
-                            className="w-full h-7 text-xs"
-                            onClick={() => handleMarkDone(globalIdx, done)}
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                            {done ? 'Llamada realizada' : 'Marcar realizada'}
-                          </Button>
-                        </div>
+                        >
+                          <td className="py-1.5 px-2 whitespace-nowrap align-top">
+                            {i === 0 && (
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <button className="text-left hover:underline">
+                                    <div className="text-[10px] text-muted-foreground">{dayName}</div>
+                                    <div className="font-semibold">{format(day, 'd MMM', { locale: es })}</div>
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={day}
+                                    onSelect={(d) => requestDateChange(globalIdx, d)}
+                                    disabled={(d) => d.getDay() === 0 || d.getDay() === 6}
+                                    className="p-3 pointer-events-auto"
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            )}
+                            {i !== 0 && (
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6">
+                                    <CalendarIcon className="w-3.5 h-3.5" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={day}
+                                    onSelect={(d) => requestDateChange(globalIdx, d)}
+                                    disabled={(d) => d.getDay() === 0 || d.getDay() === 6}
+                                    className="p-3 pointer-events-auto"
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            )}
+                          </td>
+                          <td className="py-1.5 px-2 align-top">
+                            <div className="font-semibold">{String(row.CLIENTE || '')}</div>
+                            {row.SUCURSAL && (
+                              <div className="text-muted-foreground">{String(row.SUCURSAL)}</div>
+                            )}
+                            {row.MOTIVO_CAMBIO_FECHA && (
+                              <div className="text-[10px] text-muted-foreground italic mt-0.5">
+                                Cambio: {String(row.MOTIVO_CAMBIO_FECHA)}
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-1.5 px-2 text-center align-top">
+                            <Checkbox checked={plaga} onCheckedChange={(v) => handleToggleField(globalIdx, 'PLAGA', !!v)} />
+                          </td>
+                          <td className="py-1.5 px-2 text-center align-top">
+                            <Checkbox checked={mant} onCheckedChange={(v) => handleToggleField(globalIdx, 'MEJORA_MANTENIMIENTO', !!v)} />
+                          </td>
+                          <td className="py-1.5 px-2 text-center align-top">
+                            <Checkbox checked={limp} onCheckedChange={(v) => handleToggleField(globalIdx, 'MEJORA_LIMPIEZA', !!v)} />
+                          </td>
+                          <td className="py-1.5 px-2 align-top">
+                            <Textarea
+                              defaultValue={String(row.OBSERVACIONES_LLAMADA || '')}
+                              onBlur={(e) => {
+                                const v = e.target.value;
+                                if (v !== String(row.OBSERVACIONES_LLAMADA || '')) {
+                                  handleObsChange(globalIdx, v);
+                                }
+                              }}
+                              className="text-xs min-h-[40px]"
+                              placeholder="Observaciones…"
+                            />
+                          </td>
+                          <td className="py-1.5 px-2 align-top">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => openContactDialog(row, globalIdx)}
+                            >
+                              <Phone className="w-3 h-3 mr-1" />
+                              {(row.TELEFONO_1 || row.CORREO_1) ? 'Editar' : 'Agregar'}
+                            </Button>
+                          </td>
+                          <td className="py-1.5 px-2 text-center align-top">
+                            <Button
+                              size="sm"
+                              variant={done ? 'outline' : 'default'}
+                              className="h-7 text-xs"
+                              onClick={() => handleMarkDone(globalIdx, done)}
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                              {done ? 'Realizada' : 'Marcar'}
+                            </Button>
+                          </td>
+                        </tr>
                       );
-                    })}
-                    {items.length === 0 && (
-                      <div className="text-xs text-muted-foreground text-center py-2">Sin llamadas</div>
-                    )}
-                  </div>
-                </Card>
-              );
-            })}
+                    });
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
-        </div>
-      ))}
+        </Card>
+      )}
 
       {/* Unassigned */}
       {unassigned.length > 0 && (
