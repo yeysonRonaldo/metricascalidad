@@ -87,7 +87,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       : (restrictedSup.length > 0 || restrictedEjec.length > 0 ? 'all' : '2026');
 
     const isSuperAdmin = user?.email?.toLowerCase() === 'yeyickvelas@gmail.com';
-    const defaultTab: TabName = (!isSuperAdmin && profile?.rol === 'EJECUTIVO') ? 'ejecutivos2' : (restrictedSup.length > 0 ? 'dashboard' : 'ejecutivos');
+    const defaultTab: TabName = (!isSuperAdmin && profile?.rol === 'EJECUTIVO') ? 'plan' : (restrictedSup.length > 0 ? 'dashboard' : 'ejecutivos');
     setState(s => ({
       ...s,
       supData: restrictedSup,
