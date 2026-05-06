@@ -7,6 +7,7 @@ import BalanceSection from '@/components/BalanceSection';
 import ReportSection from '@/components/ReportSection';
 import DataTableSection from '@/components/DataTableSection';
 import AdminSection from '@/components/AdminSection';
+import CallPlanSection from '@/components/CallPlanSection';
 import LoaderOverlay from '@/components/LoaderOverlay';
 
 function DashboardContent() {
