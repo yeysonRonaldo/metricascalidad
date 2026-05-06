@@ -9,6 +9,16 @@ export interface DataRow {
   STATUS?: string;
   'TIPO DE VISITA'?: string;
   OBSERVACIONES?: string;
+  // Plan de Llamadas
+  FECHA_LLAMADA?: string;
+  FECHA_LLAMADA_ORIGINAL?: string;
+  MOTIVO_CAMBIO_FECHA?: string;
+  PLAGA?: boolean | string;
+  MEJORA_MANTENIMIENTO?: boolean | string;
+  MEJORA_LIMPIEZA?: boolean | string;
+  OBSERVACIONES_LLAMADA?: string;
+  LLAMADA_REALIZADA?: boolean | string;
+  FECHA_LLAMADA_REALIZADA?: string;
   _ROLE?: 'SUPERVISOR' | 'EJECUTIVO';
   [key: string]: unknown;
 }
