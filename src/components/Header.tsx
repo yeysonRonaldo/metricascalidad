@@ -2,14 +2,15 @@ import React, { useRef, useState } from 'react';
 import { useAppContext } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
 import { getYears, MONTH_NAMES } from '@/lib/dataProcessing';
-import { FileSpreadsheet, BarChart3, Briefcase, Scale, ListChecks, LogOut, RefreshCw, UserPlus, Database, ClipboardList, ShieldAlert } from 'lucide-react';
+import { FileSpreadsheet, BarChart3, Briefcase, Scale, ListChecks, LogOut, RefreshCw, UserPlus, Database, ClipboardList, ShieldAlert, Phone } from 'lucide-react';
 import type { TabName } from '@/types/metrics';
 import AddUserDialog from '@/components/AddUserDialog';
 
-const tabs: { id: TabName; label: string; icon: React.ReactNode; field: 'sup' | 'ejec' | 'ejec_pend' | 'both' | 'admin' }[] = [
+const tabs: { id: TabName; label: string; icon: React.ReactNode; field: 'sup' | 'ejec' | 'ejec_pend' | 'both' | 'admin' | 'plan' }[] = [
   { id: 'dashboard', label: 'Supervisores', icon: <BarChart3 className="w-4 h-4" />, field: 'sup' },
   { id: 'ejecutivos', label: 'Ejecutivos', icon: <Briefcase className="w-4 h-4" />, field: 'ejec' },
   { id: 'ejecutivos2', label: 'Ejecutivos 2', icon: <ClipboardList className="w-4 h-4" />, field: 'ejec_pend' },
+  { id: 'plan', label: 'Plan de Llamadas', icon: <Phone className="w-4 h-4" />, field: 'plan' },
   { id: 'balance', label: 'Balance', icon: <Scale className="w-4 h-4" />, field: 'both' },
   { id: 'report', label: 'Lista', icon: <ListChecks className="w-4 h-4" />, field: 'both' },
   { id: 'datos', label: 'Base de Datos', icon: <Database className="w-4 h-4" />, field: 'both' },
