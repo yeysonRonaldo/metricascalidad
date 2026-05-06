@@ -86,6 +86,35 @@ export default function CallPlanSection() {
     return { total, realized, today, pct: total > 0 ? Math.round((realized / total) * 100) : 0 };
   }, [myClients, grouped]);
 
+  // Seguimiento diario: por cada día hábil del mes calcular
+  // arrastre (pendientes de días anteriores), programadas hoy, total,
+  // realizadas hoy (por FECHA_LLAMADA_REALIZADA) y saldo (= arrastre día siguiente)
+  const tracking = useMemo(() => {
+    const todayStr = formatYMD(new Date());
+    let carry = 0;
+    const rows = businessDays.map((day) => {
+      const ymd = formatYMD(day);
+      const programmed = (grouped.get(ymd) || []).length;
+      const doneToday = myClients.filter(r =>
+        asBool(r.LLAMADA_REALIZADA) &&
+        String(r.FECHA_LLAMADA_REALIZADA || '').trim() === ymd
+      ).length;
+      const totalDay = carry + programmed;
+      const isPast = ymd < todayStr;
+      const isToday = ymd === todayStr;
+      // Saldo: lo que queda al final del día = total - realizadas
+      // Solo arrastra para días pasados o el día actual (futuros no arrastran aún)
+      const balance = Math.max(0, totalDay - doneToday);
+      const nextCarry = (isPast || isToday) ? balance : carry;
+      const row = { ymd, day, carry, programmed, totalDay, doneToday, balance, isToday, isPast };
+      carry = nextCarry;
+      return row;
+    });
+    return rows;
+  }, [businessDays, grouped, myClients]);
+
+  const todayRow = tracking.find(t => t.isToday);
+
   const handleGenerate = async () => {
     if (myClients.length === 0) {
       toast.info('No hay clientes para planificar.');
@@ -197,27 +226,79 @@ export default function CallPlanSection() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <Card className="p-3">
           <div className="text-xs text-muted-foreground">Clientes del mes</div>
           <div className="text-2xl font-bold">{totals.total}</div>
         </Card>
         <Card className="p-3">
-          <div className="text-xs text-muted-foreground">Llamadas hoy</div>
-          <div className="text-2xl font-bold">{totals.today}</div>
+          <div className="text-xs text-muted-foreground">Arrastre de ayer</div>
+          <div className="text-2xl font-bold text-amber-600">{todayRow?.carry ?? 0}</div>
         </Card>
         <Card className="p-3">
-          <div className="text-xs text-muted-foreground">Realizadas</div>
-          <div className="text-2xl font-bold text-green-600">{totals.realized}</div>
+          <div className="text-xs text-muted-foreground">Programadas hoy</div>
+          <div className="text-2xl font-bold">{todayRow?.programmed ?? 0}</div>
         </Card>
         <Card className="p-3">
-          <div className="text-xs text-muted-foreground">Avance</div>
-          <div className="text-2xl font-bold text-primary">{totals.pct}%</div>
+          <div className="text-xs text-muted-foreground">Total para hoy</div>
+          <div className="text-2xl font-bold text-primary">{todayRow?.totalDay ?? 0}</div>
+        </Card>
+        <Card className="p-3">
+          <div className="text-xs text-muted-foreground">Realizadas hoy</div>
+          <div className="text-2xl font-bold text-green-600">{todayRow?.doneToday ?? 0}</div>
+        </Card>
+        <Card className="p-3">
+          <div className="text-xs text-muted-foreground">Saldo del día</div>
+          <div className="text-2xl font-bold text-rose-600">{todayRow?.balance ?? 0}</div>
         </Card>
       </div>
 
+      {/* Tabla de seguimiento diario */}
+      <Card className="p-3 overflow-x-auto">
+        <h2 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
+          <CalendarDays className="w-4 h-4" /> Seguimiento diario — {targetMonthName}
+        </h2>
+        <table className="w-full text-xs">
+          <thead className="text-muted-foreground border-b">
+            <tr>
+              <th className="text-left py-1.5 px-2">Día</th>
+              <th className="text-right py-1.5 px-2">Arrastre</th>
+              <th className="text-right py-1.5 px-2">Programadas</th>
+              <th className="text-right py-1.5 px-2">Total día</th>
+              <th className="text-right py-1.5 px-2">Realizadas</th>
+              <th className="text-right py-1.5 px-2">Saldo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tracking.map((t) => (
+              <tr
+                key={t.ymd}
+                className={cn(
+                  'border-b last:border-0',
+                  t.isToday && 'bg-primary/5 font-medium'
+                )}
+              >
+                <td className="py-1.5 px-2">
+                  {format(t.day, "EEE d 'de' MMM", { locale: es })}
+                  {t.isToday && <span className="ml-1.5 text-[10px] text-primary">(hoy)</span>}
+                </td>
+                <td className="py-1.5 px-2 text-right text-amber-600">{t.carry}</td>
+                <td className="py-1.5 px-2 text-right">{t.programmed}</td>
+                <td className="py-1.5 px-2 text-right text-primary font-semibold">{t.totalDay}</td>
+                <td className="py-1.5 px-2 text-right text-green-600">{t.doneToday}</td>
+                <td className="py-1.5 px-2 text-right text-rose-600 font-semibold">{t.balance}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="text-[11px] text-muted-foreground mt-2">
+          El <strong>saldo</strong> de un día (lo no llamado) se suma al <strong>arrastre</strong> del siguiente día hábil.
+        </p>
+      </Card>
+
       {/* Action bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-muted/40 rounded-lg p-3">
+
         <div className="text-sm text-muted-foreground">
           {unassigned.length > 0
             ? <span className="flex items-center gap-1.5"><AlertCircle className="w-4 h-4 text-amber-500" /> {unassigned.length} clientes sin fecha asignada</span>
