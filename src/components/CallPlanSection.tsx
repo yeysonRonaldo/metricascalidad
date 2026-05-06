@@ -87,10 +87,14 @@ export default function CallPlanSection() {
   }, [myClients, grouped]);
 
   const handleGenerate = async () => {
-    if (unassigned.length === 0) {
-      toast.info('Todos los clientes ya tienen una fecha asignada.');
+    if (myClients.length === 0) {
+      toast.info('No hay clientes para planificar.');
       return;
     }
+    const ok = window.confirm(
+      'Esto redistribuirá uniformemente las fechas de llamada de TODOS los clientes pendientes (no realizados) del mes. ¿Continuar?'
+    );
+    if (!ok) return;
     setGenerating(true);
     try {
       const changes = assignCallDates(myClients, targetYear, targetMonthIdx);
@@ -102,7 +106,7 @@ export default function CallPlanSection() {
           await updateRow('ejec_pend', globalIdx, 'FECHA_LLAMADA_ORIGINAL', c.newDate);
         }
       }
-      toast.success(`Plan generado: ${changes.length} clientes asignados.`);
+      toast.success(`Plan regenerado: ${changes.length} clientes actualizados.`);
     } catch (e) {
       console.error(e);
       toast.error('Error al generar el plan.');
@@ -219,9 +223,9 @@ export default function CallPlanSection() {
             ? <span className="flex items-center gap-1.5"><AlertCircle className="w-4 h-4 text-amber-500" /> {unassigned.length} clientes sin fecha asignada</span>
             : <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-green-600" /> Todos los clientes están agendados</span>}
         </div>
-        <Button onClick={handleGenerate} disabled={generating || unassigned.length === 0}>
+        <Button onClick={handleGenerate} disabled={generating || myClients.length === 0}>
           <Wand2 className="w-4 h-4 mr-1.5" />
-          {generating ? 'Generando…' : 'Generar plan del mes'}
+          {generating ? 'Generando…' : 'Regenerar plan del mes'}
         </Button>
       </div>
 

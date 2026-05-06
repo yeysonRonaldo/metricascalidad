@@ -25,9 +25,16 @@ export interface AssignedChange {
   newDate: string; // YYYY-MM-DD
 }
 
+function asBoolLocal(v: unknown): boolean {
+  if (typeof v === 'boolean') return v;
+  if (typeof v === 'string') return v === 'true' || v === '1' || v.toUpperCase() === 'SI';
+  return false;
+}
+
 /**
- * Asigna FECHA_LLAMADA a clientes que no la tengan, distribuyendo
- * uniformemente entre los días hábiles (Lun-Vie) del mes.
+ * Redistribuye FECHA_LLAMADA de TODOS los clientes pendientes (no realizados)
+ * de forma uniforme (round-robin) entre los días hábiles (Lun-Vie) del mes.
+ * Solo emite cambios cuando la fecha resultante difiere de la actual.
  */
 export function assignCallDates(
   clients: DataRow[],
@@ -37,29 +44,29 @@ export function assignCallDates(
   const businessDays = getBusinessDays(year, monthIdx);
   if (businessDays.length === 0) return [];
 
-  // Solo asignar a los que no tienen fecha
+  // Reasignar a todos los que NO han sido realizados
   const pending = clients
     .map((row, index) => ({ row, index }))
-    .filter(({ row }) => !String(row.FECHA_LLAMADA || '').trim());
+    .filter(({ row }) => !asBoolLocal(row.LLAMADA_REALIZADA));
 
   if (pending.length === 0) return [];
 
-  // Orden estable por cliente/sucursal
+  // Orden estable por cliente/sucursal para que la distribución sea determinista
   pending.sort((a, b) => {
     const ca = `${a.row.CLIENTE || ''}|${a.row.SUCURSAL || ''}`.toUpperCase();
     const cb = `${b.row.CLIENTE || ''}|${b.row.SUCURSAL || ''}`.toUpperCase();
     return ca.localeCompare(cb);
   });
 
-  const perDay = Math.ceil(pending.length / businessDays.length);
   const changes: AssignedChange[] = [];
   pending.forEach((item, i) => {
-    const dayIdx = Math.min(Math.floor(i / perDay), businessDays.length - 1);
-    changes.push({
-      row: item.row,
-      index: item.index,
-      newDate: formatYMD(businessDays[dayIdx]),
-    });
+    // Round-robin: el cliente i va al día (i % díasHábiles)
+    const dayIdx = i % businessDays.length;
+    const newDate = formatYMD(businessDays[dayIdx]);
+    const current = String(item.row.FECHA_LLAMADA || '').trim();
+    if (current !== newDate) {
+      changes.push({ row: item.row, index: item.index, newDate });
+    }
   });
   return changes;
 }
