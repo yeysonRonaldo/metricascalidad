@@ -6,11 +6,12 @@ import { assignCallDates, getBusinessDays, formatYMD } from '@/lib/callPlanSched
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Card } from '@/components/ui/card';
-import { CalendarDays, Phone, CalendarIcon, CheckCircle2, AlertCircle, Wand2, Bug, Wrench, Sparkles } from 'lucide-react';
+import { CalendarDays, Phone, CalendarIcon, CheckCircle2, AlertCircle, Wand2 } from 'lucide-react';
 import { format, parse, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
