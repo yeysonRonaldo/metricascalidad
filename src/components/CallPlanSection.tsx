@@ -86,6 +86,35 @@ export default function CallPlanSection() {
     return { total, realized, today, pct: total > 0 ? Math.round((realized / total) * 100) : 0 };
   }, [myClients, grouped]);
 
+  // Seguimiento diario: por cada día hábil del mes calcular
+  // arrastre (pendientes de días anteriores), programadas hoy, total,
+  // realizadas hoy (por FECHA_LLAMADA_REALIZADA) y saldo (= arrastre día siguiente)
+  const tracking = useMemo(() => {
+    const todayStr = formatYMD(new Date());
+    let carry = 0;
+    const rows = businessDays.map((day) => {
+      const ymd = formatYMD(day);
+      const programmed = (grouped.get(ymd) || []).length;
+      const doneToday = myClients.filter(r =>
+        asBool(r.LLAMADA_REALIZADA) &&
+        String(r.FECHA_LLAMADA_REALIZADA || '').trim() === ymd
+      ).length;
+      const totalDay = carry + programmed;
+      const isPast = ymd < todayStr;
+      const isToday = ymd === todayStr;
+      // Saldo: lo que queda al final del día = total - realizadas
+      // Solo arrastra para días pasados o el día actual (futuros no arrastran aún)
+      const balance = Math.max(0, totalDay - doneToday);
+      const nextCarry = (isPast || isToday) ? balance : carry;
+      const row = { ymd, day, carry, programmed, totalDay, doneToday, balance, isToday, isPast };
+      carry = nextCarry;
+      return row;
+    });
+    return rows;
+  }, [businessDays, grouped, myClients]);
+
+  const todayRow = tracking.find(t => t.isToday);
+
   const handleGenerate = async () => {
     if (myClients.length === 0) {
       toast.info('No hay clientes para planificar.');
