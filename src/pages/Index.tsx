@@ -22,6 +22,7 @@ function DashboardContent() {
         {hasData && activeTab === 'dashboard' && <DashboardSection type="SUPERVISOR" />}
         {hasData && activeTab === 'ejecutivos' && <DashboardSection type="EJECUTIVO" />}
         {hasData && activeTab === 'ejecutivos2' && <DashboardSection type="EJECUTIVO_PENDIENTE" />}
+        {activeTab === 'plan' && <CallPlanSection />}
         {hasData && activeTab === 'balance' && <BalanceSection />}
         {hasData && activeTab === 'report' && <ReportSection />}
         {hasData && activeTab === 'datos' && <DataTableSection />}
