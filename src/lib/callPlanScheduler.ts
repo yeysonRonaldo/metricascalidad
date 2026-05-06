@@ -1,7 +1,6 @@
 import type { DataRow } from '@/types/metrics';
 
 export function getBusinessDays(year: number, monthIdx: number): Date[] {
-  // monthIdx: 0-11
   const days: Date[] = [];
   const d = new Date(year, monthIdx, 1);
   while (d.getMonth() === monthIdx) {
@@ -21,8 +20,8 @@ export function formatYMD(d: Date): string {
 
 export interface AssignedChange {
   row: DataRow;
-  index: number; // index within the input clients array
-  newDate: string; // YYYY-MM-DD
+  index: number;
+  newDate: string; // '' significa limpiar la fecha
 }
 
 function asBoolLocal(v: unknown): boolean {
@@ -31,36 +30,56 @@ function asBoolLocal(v: unknown): boolean {
   return false;
 }
 
+function clientKey(row: DataRow): string {
+  return `${String(row.CLIENTE || '').trim().toUpperCase()}|${String(row.SUCURSAL || '').trim().toUpperCase()}`;
+}
+
 /**
- * Redistribuye FECHA_LLAMADA de TODOS los clientes pendientes (no realizados)
- * de forma uniforme (round-robin) entre los días hábiles (Lun-Vie) del mes.
- * Solo emite cambios cuando la fecha resultante difiere de la actual.
+ * Distribuye FECHA_LLAMADA uniformemente (round-robin) entre los días hábiles
+ * del mes que sean >= fromDate (default: hoy).
+ *
+ * - Deduplica por CLIENTE+SUCURSAL: solo el primer registro de cada cliente
+ *   recibe fecha; los duplicados se limpian (FECHA_LLAMADA = '').
+ * - Solo considera registros NO realizados.
  */
 export function assignCallDates(
   clients: DataRow[],
   year: number,
-  monthIdx: number
+  monthIdx: number,
+  fromDate?: Date
 ): AssignedChange[] {
-  const businessDays = getBusinessDays(year, monthIdx);
+  const allBusinessDays = getBusinessDays(year, monthIdx);
+  const cutoff = fromDate ? formatYMD(fromDate) : formatYMD(new Date());
+  const businessDays = allBusinessDays.filter(d => formatYMD(d) >= cutoff);
   if (businessDays.length === 0) return [];
 
-  // Reasignar a todos los que NO han sido realizados
   const pending = clients
     .map((row, index) => ({ row, index }))
     .filter(({ row }) => !asBoolLocal(row.LLAMADA_REALIZADA));
 
   if (pending.length === 0) return [];
 
-  // Orden estable por cliente/sucursal para que la distribución sea determinista
-  pending.sort((a, b) => {
-    const ca = `${a.row.CLIENTE || ''}|${a.row.SUCURSAL || ''}`.toUpperCase();
-    const cb = `${b.row.CLIENTE || ''}|${b.row.SUCURSAL || ''}`.toUpperCase();
-    return ca.localeCompare(cb);
-  });
+  // Orden estable por cliente/sucursal
+  pending.sort((a, b) => clientKey(a.row).localeCompare(clientKey(b.row)));
+
+  // Deduplicar por cliente+sucursal: primero gana
+  const seen = new Set<string>();
+  const unique: typeof pending = [];
+  const duplicates: typeof pending = [];
+  for (const p of pending) {
+    const k = clientKey(p.row);
+    if (seen.has(k)) {
+      duplicates.push(p);
+    } else {
+      seen.add(k);
+      unique.push(p);
+    }
+  }
 
   const changes: AssignedChange[] = [];
-  pending.forEach((item, i) => {
-    // Round-robin: el cliente i va al día (i % díasHábiles)
+
+  // Asignar fechas round-robin a únicos
+  unique.forEach((item, i) => {
     const dayIdx = i % businessDays.length;
     const newDate = formatYMD(businessDays[dayIdx]);
     const current = String(item.row.FECHA_LLAMADA || '').trim();
@@ -68,5 +87,14 @@ export function assignCallDates(
       changes.push({ row: item.row, index: item.index, newDate });
     }
   });
+
+  // Limpiar duplicados
+  duplicates.forEach((item) => {
+    const current = String(item.row.FECHA_LLAMADA || '').trim();
+    if (current !== '') {
+      changes.push({ row: item.row, index: item.index, newDate: '' });
+    }
+  });
+
   return changes;
 }
