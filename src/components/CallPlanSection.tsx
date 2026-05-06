@@ -87,10 +87,14 @@ export default function CallPlanSection() {
   }, [myClients, grouped]);
 
   const handleGenerate = async () => {
-    if (unassigned.length === 0) {
-      toast.info('Todos los clientes ya tienen una fecha asignada.');
+    if (myClients.length === 0) {
+      toast.info('No hay clientes para planificar.');
       return;
     }
+    const ok = window.confirm(
+      'Esto redistribuirá uniformemente las fechas de llamada de TODOS los clientes pendientes (no realizados) del mes. ¿Continuar?'
+    );
+    if (!ok) return;
     setGenerating(true);
     try {
       const changes = assignCallDates(myClients, targetYear, targetMonthIdx);
@@ -102,7 +106,7 @@ export default function CallPlanSection() {
           await updateRow('ejec_pend', globalIdx, 'FECHA_LLAMADA_ORIGINAL', c.newDate);
         }
       }
-      toast.success(`Plan generado: ${changes.length} clientes asignados.`);
+      toast.success(`Plan regenerado: ${changes.length} clientes actualizados.`);
     } catch (e) {
       console.error(e);
       toast.error('Error al generar el plan.');
