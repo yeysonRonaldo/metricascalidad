@@ -27,7 +27,9 @@ type DeleteScope = 'single' | 'forward' | 'range' | 'year';
 export default function DataTableSection() {
   const { supData, ejecData, ejecPendientesData, yearFilter, monthFilter, updateRow, deleteRow, deleteRowsBulk, usersData } = useAppContext();
   const { profile, user } = useAuth();
-  const [dataType, setDataType] = useState<DataType>('sup');
+  const isSuperAdminEarly = user?.email?.toLowerCase() === 'yeyickvelas@gmail.com';
+  const isEjecutivoOnly = !isSuperAdminEarly && profile?.rol === 'EJECUTIVO';
+  const [dataType, setDataType] = useState<DataType>(isEjecutivoOnly ? 'ejec_pend' : 'sup');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [nameFilter, setNameFilter] = useState('all');
