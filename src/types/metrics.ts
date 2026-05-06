@@ -19,6 +19,12 @@ export interface DataRow {
   OBSERVACIONES_LLAMADA?: string;
   LLAMADA_REALIZADA?: boolean | string;
   FECHA_LLAMADA_REALIZADA?: string;
+  TELEFONO_1?: string;
+  TELEFONO_2?: string;
+  TELEFONO_3?: string;
+  CORREO_1?: string;
+  CORREO_2?: string;
+  CORREO_3?: string;
   _ROLE?: 'SUPERVISOR' | 'EJECUTIVO';
   [key: string]: unknown;
 }
