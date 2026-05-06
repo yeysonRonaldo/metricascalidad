@@ -87,13 +87,26 @@ export default function CallPlanSection() {
     [myClients]
   );
 
+  // Clientes únicos por CLIENTE+SUCURSAL (los duplicados inflan el conteo)
+  const uniqueClients = useMemo(() => {
+    const seen = new Set<string>();
+    const out: DataRow[] = [];
+    for (const r of myClients) {
+      const k = `${String(r.CLIENTE || '').trim().toUpperCase()}|${String(r.SUCURSAL || '').trim().toUpperCase()}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(r);
+    }
+    return out;
+  }, [myClients]);
+
   const totals = useMemo(() => {
-    const total = myClients.length;
-    const realized = myClients.filter(r => asBool(r.LLAMADA_REALIZADA)).length;
+    const total = uniqueClients.length;
+    const realized = uniqueClients.filter(r => asBool(r.LLAMADA_REALIZADA)).length;
     const todayStr = formatYMD(new Date());
     const today = (grouped.get(todayStr) || []).filter(({ row }) => !asBool(row.LLAMADA_REALIZADA)).length;
     return { total, realized, today, pct: total > 0 ? Math.round((realized / total) * 100) : 0 };
-  }, [myClients, grouped]);
+  }, [uniqueClients, grouped]);
 
   // Seguimiento diario: por cada día hábil del mes calcular
   // arrastre (pendientes de días anteriores), programadas hoy, total,
