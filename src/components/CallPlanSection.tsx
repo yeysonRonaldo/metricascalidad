@@ -576,6 +576,51 @@ export default function CallPlanSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Contact dialog */}
+      <Dialog open={!!contactDialog} onOpenChange={(o) => !o && setContactDialog(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Contacto del cliente</DialogTitle>
+            <DialogDescription>
+              {contactDialog?.cliente}{contactDialog?.sucursal ? ` — ${contactDialog.sucursal}` : ''}
+            </DialogDescription>
+          </DialogHeader>
+          {contactDialog && (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium">Teléfonos</label>
+                <Input placeholder="Teléfono 1" value={contactDialog.tel1}
+                  onChange={(e) => setContactDialog({ ...contactDialog, tel1: e.target.value })} />
+                <Input placeholder="Teléfono 2" value={contactDialog.tel2}
+                  onChange={(e) => setContactDialog({ ...contactDialog, tel2: e.target.value })} />
+                <Input placeholder="Teléfono 3" value={contactDialog.tel3}
+                  onChange={(e) => setContactDialog({ ...contactDialog, tel3: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium">Correos</label>
+                <Input type="email" placeholder="Correo 1" value={contactDialog.email1}
+                  onChange={(e) => setContactDialog({ ...contactDialog, email1: e.target.value })} />
+                <Input type="email" placeholder="Correo 2" value={contactDialog.email2}
+                  onChange={(e) => setContactDialog({ ...contactDialog, email2: e.target.value })} />
+                <Input type="email" placeholder="Correo 3" value={contactDialog.email3}
+                  onChange={(e) => setContactDialog({ ...contactDialog, email3: e.target.value })} />
+              </div>
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <Checkbox
+                  checked={contactDialog.replicate}
+                  onCheckedChange={(v) => setContactDialog({ ...contactDialog, replicate: !!v })}
+                />
+                Replicar a este cliente/sucursal en los siguientes meses
+              </label>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setContactDialog(null)}>Cancelar</Button>
+            <Button onClick={saveContact}>Guardar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
