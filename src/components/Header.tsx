@@ -32,7 +32,7 @@ export default function Header() {
   const visibleTabs = tabs.filter(t => {
     const isSuperAdmin = user?.email?.toLowerCase() === 'yeyickvelas@gmail.com';
     if (!isSuperAdmin && profile?.rol === 'EJECUTIVO') {
-      return t.id === 'ejecutivos2';
+      return t.id === 'ejecutivos2' || t.id === 'datos';
     }
     if (!hasData && t.field !== 'admin') return false;
     if (t.field === 'sup') return supData.length > 0;
