@@ -190,6 +190,59 @@ export default function CallPlanSection() {
     }
   };
 
+  const openContactDialog = (row: DataRow, globalIdx: number) => {
+    setContactDialog({
+      globalIdx,
+      cliente: String(row.CLIENTE || ''),
+      sucursal: String(row.SUCURSAL || ''),
+      tel1: String(row.TELEFONO_1 || ''),
+      tel2: String(row.TELEFONO_2 || ''),
+      tel3: String(row.TELEFONO_3 || ''),
+      email1: String(row.CORREO_1 || ''),
+      email2: String(row.CORREO_2 || ''),
+      email3: String(row.CORREO_3 || ''),
+      replicate: true,
+    });
+  };
+
+  const saveContact = async () => {
+    if (!contactDialog) return;
+    const { globalIdx, tel1, tel2, tel3, email1, email2, email3, replicate, cliente, sucursal } = contactDialog;
+    try {
+      const fields: Record<string, string> = {
+        TELEFONO_1: tel1, TELEFONO_2: tel2, TELEFONO_3: tel3,
+        CORREO_1: email1, CORREO_2: email2, CORREO_3: email3,
+      };
+      for (const [k, v] of Object.entries(fields)) {
+        await updateRow('ejec_pend', globalIdx, k, v);
+      }
+      if (replicate) {
+        const cKey = cliente.toUpperCase();
+        const sKey = sucursal.toUpperCase();
+        const matches: number[] = [];
+        ejecPendientesData.forEach((r, i) => {
+          if (i === globalIdx) return;
+          if (String(r.CLIENTE || '').toUpperCase() === cKey &&
+              String(r.SUCURSAL || '').toUpperCase() === sKey) {
+            matches.push(i);
+          }
+        });
+        for (const idx of matches) {
+          for (const [k, v] of Object.entries(fields)) {
+            await updateRow('ejec_pend', idx, k, v);
+          }
+        }
+        toast.success(`Contacto guardado y replicado a ${matches.length} registro(s).`);
+      } else {
+        toast.success('Contacto guardado.');
+      }
+      setContactDialog(null);
+    } catch (e) {
+      console.error(e);
+      toast.error('Error al guardar contacto');
+    }
+  };
+
   const requestDateChange = (globalIdx: number, newDate: Date | undefined) => {
     if (!newDate) return;
     setReasonDialog({ globalIdx, newDate: formatYMD(newDate) });
