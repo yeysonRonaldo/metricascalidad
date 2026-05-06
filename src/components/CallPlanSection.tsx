@@ -115,6 +115,16 @@ export default function CallPlanSection() {
 
   const todayRow = tracking.find(t => t.isToday);
 
+  // Acumulado hasta hoy (excluye futuro para no inflar KPIs)
+  const accumToToday = useMemo(() => {
+    const upto = tracking.filter(t => t.isPast || t.isToday);
+    const programmed = upto.reduce((s, t) => s + t.programmed, 0);
+    const done = upto.reduce((s, t) => s + t.doneToday, 0);
+    const pending = Math.max(0, programmed - done);
+    const pct = programmed > 0 ? Math.round((done / programmed) * 100) : 0;
+    return { programmed, done, pending, pct };
+  }, [tracking]);
+
   const handleGenerate = async () => {
     if (myClients.length === 0) {
       toast.info('No hay clientes para planificar.');
@@ -225,7 +235,7 @@ export default function CallPlanSection() {
         </p>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs — solo hasta hoy */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <Card className="p-3">
           <div className="text-xs text-muted-foreground">Clientes del mes</div>
@@ -234,10 +244,6 @@ export default function CallPlanSection() {
         <Card className="p-3">
           <div className="text-xs text-muted-foreground">Arrastre de ayer</div>
           <div className="text-2xl font-bold text-amber-600">{todayRow?.carry ?? 0}</div>
-        </Card>
-        <Card className="p-3">
-          <div className="text-xs text-muted-foreground">Programadas hoy</div>
-          <div className="text-2xl font-bold">{todayRow?.programmed ?? 0}</div>
         </Card>
         <Card className="p-3">
           <div className="text-xs text-muted-foreground">Total para hoy</div>
@@ -250,6 +256,13 @@ export default function CallPlanSection() {
         <Card className="p-3">
           <div className="text-xs text-muted-foreground">Saldo del día</div>
           <div className="text-2xl font-bold text-rose-600">{todayRow?.balance ?? 0}</div>
+        </Card>
+        <Card className="p-3">
+          <div className="text-xs text-muted-foreground">Avance al día (acum.)</div>
+          <div className="text-2xl font-bold text-primary">{accumToToday.pct}%</div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">
+            {accumToToday.done}/{accumToToday.programmed} · pend. {accumToToday.pending}
+          </div>
         </Card>
       </div>
 
