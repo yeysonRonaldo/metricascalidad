@@ -115,6 +115,16 @@ export default function CallPlanSection() {
 
   const todayRow = tracking.find(t => t.isToday);
 
+  // Acumulado hasta hoy (excluye futuro para no inflar KPIs)
+  const accumToToday = useMemo(() => {
+    const upto = tracking.filter(t => t.isPast || t.isToday);
+    const programmed = upto.reduce((s, t) => s + t.programmed, 0);
+    const done = upto.reduce((s, t) => s + t.doneToday, 0);
+    const pending = Math.max(0, programmed - done);
+    const pct = programmed > 0 ? Math.round((done / programmed) * 100) : 0;
+    return { programmed, done, pending, pct };
+  }, [tracking]);
+
   const handleGenerate = async () => {
     if (myClients.length === 0) {
       toast.info('No hay clientes para planificar.');
